@@ -939,17 +939,10 @@ test('test that shared report displays cost column correctly aligned with data r
     // Verify the Total row displays both duration and cost
     await expect(page.getByText('Total')).toBeVisible();
 
-    // The data rows should render cost values (not just header + duration)
-    // With 1h at 100/h the cost should be displayed somewhere in the table
-    // If showCost is not passed to ReportingRow, only the header "Cost" and
-    // the Total row cost will render, but individual row costs will be missing
-    const table = page.locator('[style*="grid-template-columns"]');
-    // Count elements containing the cost value - header "Cost" + project row cost + total row cost = 3
-    // If broken (showCost not passed), the project row won't render its cost cell
-    await expect(table.getByText(/100/).first()).toBeVisible();
-
-    // Verify the cost value appears at least twice in the table
-    // (once for the data row, once for the total) beyond just the header
-    const costValues = table.getByText(/100/);
-    await expect(costValues).toHaveCount(2);
+    // The data row should still render a cost cell when no internal cost rate exists.
+    // A project's billable rate is revenue and must not be reported as cost.
+    const table = page
+        .locator('[style*="grid-template-columns"]')
+        .filter({ has: page.getByText('Cost', { exact: true }) });
+    await expect(table.getByText('--', { exact: true })).toHaveCount(2);
 });

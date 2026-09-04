@@ -1137,8 +1137,12 @@ test.describe('Employee Reporting Restrictions', () => {
         // Cost column header should be visible
         await expect(employee.page.getByText('Cost', { exact: true })).toBeVisible();
 
-        // 1h at 100.00/h billable rate = 100.00 cost (shown in row and total)
-        await expect(employee.page.getByText('100,00 EUR').first()).toBeVisible();
+        // Ordinary entries do not have an imported internal cost rate, so cost is unavailable.
+        // The billable rate is revenue and must not be reported as cost.
+        const table = employee.page
+            .locator('[style*="grid-template-columns"]')
+            .filter({ has: employee.page.getByText('Cost', { exact: true }) });
+        await expect(table.getByText('--', { exact: true })).toHaveCount(2);
     });
 });
 

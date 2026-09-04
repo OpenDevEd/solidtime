@@ -192,7 +192,11 @@ test.describe('Employee Dashboard Restrictions', () => {
         await expect(employee.page.getByText('Duration', { exact: true })).toBeVisible();
         await expect(employee.page.getByText('Cost', { exact: true })).toBeVisible();
 
-        // 1h at 100.00/h = 100.00 EUR cost should be visible
-        await expect(employee.page.getByText('100,00 EUR').first()).toBeVisible();
+        // Ordinary entries do not have an imported internal cost rate, so cost is unavailable.
+        // The billable rate is revenue and must not be reported as cost.
+        const table = employee.page
+            .locator('[style*="grid-template-columns"]')
+            .filter({ has: employee.page.getByText('Cost', { exact: true }) });
+        await expect(table.getByText('--', { exact: true })).toHaveCount(2);
     });
 });
