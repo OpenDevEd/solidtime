@@ -230,6 +230,31 @@ class TimeEntryAggregationServiceTest extends TestCaseWithDatabase
         ], $result);
     }
 
+    public function test_aggregate_time_entries_uses_internal_cost_rate_for_cost(): void
+    {
+        TimeEntry::factory()->startWithDuration(now(), 3600)->create([
+            'billable' => true,
+            'billable_rate' => 10000,
+            'cost_rate' => 2550,
+        ]);
+
+        $result = $this->service->getAggregatedTimeEntries(
+            TimeEntry::query(),
+            null,
+            null,
+            'Europe/Vienna',
+            Weekday::Monday,
+            false,
+            null,
+            null,
+            true,
+            null,
+            null
+        );
+
+        $this->assertSame(2550, $result['cost']);
+    }
+
     public function test_aggregate_time_entries_empty_state_by_day_and_project_with_filled_gaps(): void
     {
         // Arrange

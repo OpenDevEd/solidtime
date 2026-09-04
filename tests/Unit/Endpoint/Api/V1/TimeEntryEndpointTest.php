@@ -5652,11 +5652,10 @@ class TimeEntryEndpointTest extends ApiEndpointTestAbstract
         ]);
     }
 
-    public function test_update_endpoint_converting_a_billable_entry_to_a_break_clears_the_billable_rate(): void
+    public function test_update_endpoint_converting_a_billable_entry_to_a_break_clears_financial_rates(): void
     {
         // Arrange
-        // Regression: converting to a break cleared "billable" but left "billable_rate" set, so the
-        // break still contributed to cost aggregation (which sums billable_rate without checking billable).
+        // Breaks must never contribute revenue or internal cost to financial reports.
         $data = $this->createUserWithPermission([
             'time-entries:update:own',
         ]);
@@ -5668,7 +5667,7 @@ class TimeEntryEndpointTest extends ApiEndpointTestAbstract
             ->forMember($data->member)
             ->forProject($project)
             ->billableRate(10000)
-            ->create();
+            ->create(['cost_rate' => 2550]);
         Passport::actingAs($data->user);
 
         // Act
@@ -5685,6 +5684,7 @@ class TimeEntryEndpointTest extends ApiEndpointTestAbstract
             'type' => 'break',
             'billable' => false,
             'billable_rate' => null,
+            'cost_rate' => null,
         ]);
     }
 }

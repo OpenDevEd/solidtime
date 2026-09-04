@@ -78,7 +78,7 @@ class TimeEntryAggregationService
             ($group1Select !== null ? $group1Select.' as group_1,' : '').
             ($group2Select !== null ? $group2Select.' as group_2,' : '').
             ' round(sum(extract(epoch from ('.$endRawSelect.' - '.$startRawSelect.')))) as aggregate,'.
-            ' round(sum(extract(epoch from ('.$endRawSelect.' - '.$startRawSelect.')) * (coalesce(billable_rate, 0)::float/60/60))) as cost'
+            ' round(sum(extract(epoch from ('.$endRawSelect.' - '.$startRawSelect.')) * (coalesce(cost_rate, 0)::float/60/60))) as cost'
         );
         if ($groupBy !== null) {
             $timeEntriesQuery->groupBy($groupBy);
@@ -106,7 +106,7 @@ class TimeEntryAggregationService
                     ->selectRaw(
                         $group1Select.' as group_1,'.
                         ' round(sum(extract(epoch from ('.$endRawSelect.' - '.$startRawSelect.')))) as aggregate,'.
-                        ' round(sum(extract(epoch from ('.$endRawSelect.' - '.$startRawSelect.')) * (coalesce(billable_rate, 0)::float/60/60))) as cost'
+                        ' round(sum(extract(epoch from ('.$endRawSelect.' - '.$startRawSelect.')) * (coalesce(cost_rate, 0)::float/60/60))) as cost'
                     )
                     ->groupBy('group_1')
                     ->get();
@@ -170,7 +170,7 @@ class TimeEntryAggregationService
                 $baseTotals = $baseTotalsQuery
                     ->selectRaw(
                         ' round(sum(extract(epoch from ('.$endRawSelect.' - '.$startRawSelect.')))) as aggregate,'.
-                        ' round(sum(extract(epoch from ('.$endRawSelect.' - '.$startRawSelect.')) * (coalesce(billable_rate, 0)::float/60/60))) as cost'
+                        ' round(sum(extract(epoch from ('.$endRawSelect.' - '.$startRawSelect.')) * (coalesce(cost_rate, 0)::float/60/60))) as cost'
                     )
                     ->first();
                 if ($baseTotals !== null) {

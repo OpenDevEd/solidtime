@@ -28,6 +28,8 @@ use Staudenmeir\EloquentJsonRelations\Relations\BelongsToJson;
  * @property Carbon $start
  * @property Carbon|null $end
  * @property int|null $billable_rate Billable rate per hour in cents
+ * @property int|null $cost_rate Internal cost rate per hour in cents
+ * @property string|null $billable_currency ISO 4217 currency code for the billable rate
  * @property bool $billable
  * @property TimeEntryType $type
  * @property array<string> $tags
@@ -76,6 +78,8 @@ class TimeEntry extends Model implements AuditableContract
         'type' => TimeEntryType::class,
         'tags' => 'array',
         'billable_rate' => 'int',
+        'cost_rate' => 'int',
+        'billable_currency' => 'string',
         'is_imported' => 'bool',
         'still_active_email_sent_at' => 'datetime',
     ];
@@ -93,6 +97,8 @@ class TimeEntry extends Model implements AuditableContract
         'start',
         'end',
         'billable_rate',
+        'cost_rate',
+        'billable_currency',
         'billable',
         'type',
         'user_id',
@@ -135,6 +141,8 @@ class TimeEntry extends Model implements AuditableContract
             if ($timeEntry->type === TimeEntryType::Break) {
                 $timeEntry->billable = false;
                 $timeEntry->billable_rate = null;
+                $timeEntry->cost_rate = null;
+                $timeEntry->billable_currency = null;
                 $timeEntry->project_id = null;
                 $timeEntry->task_id = null;
                 $timeEntry->client_id = null;
