@@ -6,6 +6,7 @@ namespace App\Service;
 
 use App\Enums\Role;
 use App\Models\ExternalAuthOrganization;
+use App\Models\ExternalAuthUserMapping;
 use App\Models\ExternalIdentity;
 use App\Models\Organization;
 use App\Models\User;
@@ -32,6 +33,9 @@ class GoogleAuthenticationService
         string $name,
         ?string $avatarUrl,
     ): User {
+        $email = Str::lower($email);
+        $name = Str::squish($name);
+
         [$user, $organization] = DB::transaction(function () use ($subject, $email, $name): array {
             $authOrganization = ExternalAuthOrganization::query()
                 ->whereKey('google')
@@ -54,21 +58,51 @@ class GoogleAuthenticationService
                 return [$user, $organization];
             }
 
-            $user = User::query()
-                ->where('email', strtolower($email))
-                ->where('is_placeholder', false)
-                ->lockForUpdate()
-                ->first();
+            $organization = $authOrganization->organization;
+            $mapping = $organization === null
+                ? null
+                : ExternalAuthUserMapping::query()
+                    ->where('provider', 'google')
+                    ->where('email', $email)
+                    ->whereBelongsTo($organization, 'organization')
+                    ->lockForUpdate()
+                    ->first();
+            $role = $mapping instanceof ExternalAuthUserMapping ? $mapping->role : Role::Employee;
+            $user = null;
 
+            if ($mapping !== null) {
+                $mappedUser = User::query()->lockForUpdate()->findOrFail($mapping->user_id);
+                $user = $mappedUser->is_placeholder
+                    ? $this->memberService->claimPlaceholderMember(
+                        $mappedUser,
+                        $organization,
+                        $name,
+                        $email,
+                        $role,
+                    )
+                    : $mappedUser;
+            }
+
+            if ($user === null) {
+                $user = User::query()
+                    ->where('email', $email)
+                    ->where('is_placeholder', false)
+                    ->lockForUpdate()
+                    ->first();
+            }
+            if ($user === null) {
+                $user = $organization === null
+                    ? null
+                    : $this->memberService->claimUniquePlaceholderMember($organization, $name, $email, $role);
+            }
             if ($user === null) {
                 $user = $this->userService->createPasswordlessUser($name, $email);
             }
 
-            $organization = $authOrganization->organization;
             if ($organization === null) {
                 $organization = $this->createOrganizationForOwner($user, $authOrganization);
             } else {
-                $this->ensureOrganizationMembership($user, $organization);
+                $this->ensureOrganizationMembership($user, $organization, $role);
             }
 
             $identity = new ExternalIdentity;
@@ -103,14 +137,17 @@ class GoogleAuthenticationService
         return $organization;
     }
 
-    private function ensureOrganizationMembership(User $user, Organization $organization): void
-    {
+    private function ensureOrganizationMembership(
+        User $user,
+        Organization $organization,
+        Role $role = Role::Employee,
+    ): void {
         if ($user->email_verified_at === null) {
             $user->email_verified_at = Carbon::now();
         }
 
         if (! $user->isMemberOfOrganization($organization)) {
-            $this->memberService->addMember($user, $organization, Role::Employee);
+            $this->memberService->addMember($user, $organization, $role);
 
             return;
         }

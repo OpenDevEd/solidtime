@@ -22,9 +22,17 @@ return new class extends Migration
             $table->timestamps();
         });
 
+        $existingOrganizations = DB::table('organizations')
+            ->select('id')
+            ->limit(2)
+            ->get();
+        $organizationId = $existingOrganizations->count() === 1
+            ? (string) $existingOrganizations->first()->id
+            : null;
+
         DB::table('external_auth_organizations')->insert([
             'provider' => 'google',
-            'organization_id' => null,
+            'organization_id' => $organizationId,
             'created_at' => now(),
             'updated_at' => now(),
         ]);

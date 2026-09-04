@@ -22,6 +22,7 @@ use App\Models\TimeEntry;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use InvalidArgumentException;
 
 class MemberService
@@ -56,6 +57,91 @@ class MemberService
         }
 
         return $member;
+    }
+
+    public function claimUniquePlaceholderMember(
+        Organization $organization,
+        string $name,
+        string $email,
+        Role $role = Role::Employee,
+    ): ?User {
+        $placeholderMembers = Member::query()
+            ->whereBelongsTo($organization, 'organization')
+            ->where('role', Role::Placeholder->value)
+            ->whereHas('user', function (Builder $query): void {
+                /** @var Builder<User> $query */
+                $query->where('is_placeholder', true);
+            })
+            ->with('user')
+            ->lockForUpdate()
+            ->get();
+
+        $normalizedEmail = Str::lower($email);
+        $matchingMembers = $placeholderMembers->filter(
+            fn (Member $member): bool => Str::lower($member->user->email) === $normalizedEmail
+        );
+
+        if ($matchingMembers->isEmpty()) {
+            $normalizedName = $this->normalizeName($name);
+            $matchingMembers = $placeholderMembers->filter(
+                fn (Member $member): bool => $this->normalizeName($member->user->name) === $normalizedName
+            );
+        }
+
+        if ($matchingMembers->count() !== 1) {
+            return null;
+        }
+
+        /** @var Member $member */
+        $member = $matchingMembers->first();
+        $user = $this->claimPlaceholderMember($member->user, $organization, $name, $email, $role);
+
+        return $user;
+    }
+
+    public function claimPlaceholderMember(
+        User $placeholder,
+        Organization $organization,
+        string $name,
+        string $email,
+        Role $role,
+    ): ?User {
+        $member = Member::query()
+            ->whereBelongsTo($organization, 'organization')
+            ->whereBelongsTo($placeholder, 'user')
+            ->where('role', Role::Placeholder->value)
+            ->lockForUpdate()
+            ->first();
+        if ($member === null) {
+            return null;
+        }
+
+        /** @var User $user */
+        $user = User::query()
+            ->whereKey($placeholder->getKey())
+            ->lockForUpdate()
+            ->firstOrFail();
+        if (! $user->is_placeholder) {
+            return null;
+        }
+
+        $user->name = $name;
+        $user->email = Str::lower($email);
+        $user->pending_email = null;
+        $user->password = null;
+        $user->email_verified_at = now();
+        $user->is_placeholder = false;
+        $user->save();
+
+        $member->role = $role->value;
+        $member->save();
+
+        return $user;
+    }
+
+    private function normalizeName(string $name): string
+    {
+        return Str::lower(Str::squish(Str::ascii($name)));
     }
 
     private function mergePlaceholderMembersIntoExistingMember(Member $member, Organization $organization, User $user): void

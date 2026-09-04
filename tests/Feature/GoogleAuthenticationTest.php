@@ -6,8 +6,12 @@ namespace Tests\Feature;
 
 use App\Enums\Role;
 use App\Models\ExternalAuthOrganization;
+use App\Models\ExternalAuthUserMapping;
+use App\Models\Member;
 use App\Models\Organization;
 use App\Models\OrganizationInvitation;
+use App\Models\ProjectMember;
+use App\Models\TimeEntry;
 use App\Models\User;
 use App\Providers\RouteServiceProvider;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -229,6 +233,140 @@ class GoogleAuthenticationTest extends TestCase
             'role' => Role::Employee->value,
         ]);
         $this->assertDatabaseCount('organizations', 1);
+    }
+
+    public function test_google_login_claims_the_unique_placeholder_with_the_same_name(): void
+    {
+        $organization = $this->createGoogleOrganization();
+        $placeholder = User::factory()->placeholder()->forCurrentOrganization($organization)->create([
+            'name' => 'Andre Oliveira',
+            'email' => 'andre.oliveira@solidtime-import.test',
+        ]);
+        $placeholderMember = Member::factory()
+            ->forOrganization($organization)
+            ->forUser($placeholder)
+            ->role(Role::Placeholder)
+            ->create();
+        $timeEntry = TimeEntry::factory()->forMember($placeholderMember)->create();
+        $projectMember = ProjectMember::factory()->forMember($placeholderMember)->create();
+        $userCountBeforeLogin = User::query()->count();
+        config()->set('services.google.enabled', true);
+        config()->set('services.google.allowed_domains', ['opendeved.net', 'ekitabu.com']);
+
+        $googleUser = SocialiteUser::fake([
+            'id' => 'google-placeholder-user',
+            'name' => '  André   Oliveira ',
+            'email' => 'andre@opendeved.net',
+            'email_verified' => true,
+            'hd' => 'opendeved.net',
+            'avatar' => null,
+        ]);
+        $provider = Mockery::mock(Provider::class);
+        $provider->shouldReceive('user')->once()->andReturn($googleUser);
+        Socialite::shouldReceive('driver')->once()->with('google')->andReturn($provider);
+
+        $this->get('/auth/google/callback')->assertRedirect(RouteServiceProvider::HOME);
+
+        $claimedUser = $placeholder->refresh();
+        $claimedMember = $placeholderMember->refresh();
+        $this->assertAuthenticatedAs($claimedUser);
+        $this->assertFalse($claimedUser->is_placeholder);
+        $this->assertSame('andre@opendeved.net', $claimedUser->email);
+        $this->assertSame('André Oliveira', $claimedUser->name);
+        $this->assertSame(Role::Employee->value, $claimedMember->role);
+        $this->assertSame($claimedUser->getKey(), $timeEntry->refresh()->user_id);
+        $this->assertSame($claimedMember->getKey(), $timeEntry->member_id);
+        $this->assertSame($claimedUser->getKey(), $projectMember->refresh()->user_id);
+        $this->assertSame($claimedMember->getKey(), $projectMember->member_id);
+        $this->assertDatabaseCount('users', $userCountBeforeLogin);
+        $this->assertDatabaseHas('external_identities', [
+            'user_id' => $claimedUser->getKey(),
+            'provider' => 'google',
+            'provider_user_id' => 'google-placeholder-user',
+        ]);
+    }
+
+    public function test_google_login_uses_an_explicit_mapping_when_the_google_name_differs(): void
+    {
+        $organization = $this->createGoogleOrganization();
+        $placeholder = User::factory()->placeholder()->forCurrentOrganization($organization)->create([
+            'name' => 'Björn Haßler',
+            'email' => 'bjorn.hassler@solidtime-import.test',
+        ]);
+        $placeholderMember = Member::factory()
+            ->forOrganization($organization)
+            ->forUser($placeholder)
+            ->role(Role::Placeholder)
+            ->create();
+        $mapping = new ExternalAuthUserMapping;
+        $mapping->provider = 'google';
+        $mapping->email = 'bjoern@opendeved.net';
+        $mapping->user()->associate($placeholder);
+        $mapping->organization()->associate($organization);
+        $mapping->role = Role::Admin;
+        $mapping->save();
+        config()->set('services.google.enabled', true);
+        config()->set('services.google.allowed_domains', ['opendeved.net', 'ekitabu.com']);
+
+        $googleUser = SocialiteUser::fake([
+            'id' => 'google-explicitly-mapped-user',
+            'name' => 'Bjoern Hassler',
+            'email' => 'bjoern@opendeved.net',
+            'email_verified' => true,
+            'hd' => 'opendeved.net',
+            'avatar' => null,
+        ]);
+        $provider = Mockery::mock(Provider::class);
+        $provider->shouldReceive('user')->once()->andReturn($googleUser);
+        Socialite::shouldReceive('driver')->once()->with('google')->andReturn($provider);
+
+        $this->get('/auth/google/callback')->assertRedirect(RouteServiceProvider::HOME);
+
+        $claimedUser = $placeholder->refresh();
+        $this->assertAuthenticatedAs($claimedUser);
+        $this->assertFalse($claimedUser->is_placeholder);
+        $this->assertSame('bjoern@opendeved.net', $claimedUser->email);
+        $this->assertSame('Bjoern Hassler', $claimedUser->name);
+        $this->assertSame(Role::Admin->value, $placeholderMember->refresh()->role);
+        $this->assertDatabaseCount('users', 2);
+    }
+
+    public function test_google_login_does_not_claim_a_placeholder_when_the_name_is_ambiguous(): void
+    {
+        $organization = $this->createGoogleOrganization();
+        foreach (['first', 'second'] as $prefix) {
+            $placeholder = User::factory()->placeholder()->forCurrentOrganization($organization)->create([
+                'name' => 'Shared Name',
+                'email' => $prefix.'.shared-name@solidtime-import.test',
+            ]);
+            Member::factory()
+                ->forOrganization($organization)
+                ->forUser($placeholder)
+                ->role(Role::Placeholder)
+                ->create();
+        }
+        config()->set('services.google.enabled', true);
+        config()->set('services.google.allowed_domains', ['opendeved.net', 'ekitabu.com']);
+
+        $googleUser = SocialiteUser::fake([
+            'id' => 'google-ambiguous-placeholder-user',
+            'name' => 'Shared Name',
+            'email' => 'shared.name@opendeved.net',
+            'email_verified' => true,
+            'hd' => 'opendeved.net',
+            'avatar' => null,
+        ]);
+        $provider = Mockery::mock(Provider::class);
+        $provider->shouldReceive('user')->once()->andReturn($googleUser);
+        Socialite::shouldReceive('driver')->once()->with('google')->andReturn($provider);
+
+        $this->get('/auth/google/callback')->assertRedirect(RouteServiceProvider::HOME);
+
+        $newUser = User::query()->where('email', 'shared.name@opendeved.net')->firstOrFail();
+        $this->assertAuthenticatedAs($newUser);
+        $this->assertFalse($newUser->is_placeholder);
+        $this->assertDatabaseCount('users', 4);
+        $this->assertSame(2, User::query()->where('is_placeholder', true)->count());
     }
 
     public function test_repeat_google_login_uses_the_linked_subject_without_creating_another_account(): void
