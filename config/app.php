@@ -11,7 +11,6 @@ use App\Providers\AppServiceProvider;
 use App\Providers\AuthServiceProvider;
 use App\Providers\EventServiceProvider;
 use App\Providers\Filament\AdminPanelProvider;
-use App\Providers\FortifyServiceProvider;
 use App\Providers\RouteServiceProvider;
 use Illuminate\Support\Facades\Facade;
 use Illuminate\Support\ServiceProvider;
@@ -100,9 +99,9 @@ return [
 
     'force_https' => (bool) env('APP_FORCE_HTTPS', false),
 
-    'enable_registration' => env('APP_ENABLE_REGISTRATION', 'off'),
-
     'local_email_verification' => (bool) env('APP_LOCAL_EMAIL_VERIFICATION', false),
+
+    'e2e_auth_token' => env('E2E_AUTH_TOKEN'),
 
     /*
     |--------------------------------------------------------------------------
@@ -239,7 +238,6 @@ return [
         EventServiceProvider::class,
         AdminPanelProvider::class,
         RouteServiceProvider::class,
-        FortifyServiceProvider::class,
         // Warning: Do not add TelescopeServiceProvider here since it is already conditionally registered in AppServiceProvider
         LaravelModulesServiceProvider::class,
     ])->toArray(),

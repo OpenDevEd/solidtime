@@ -5,17 +5,12 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1;
 
 use App\Enums\Role;
-use App\Events\AfterCreateOrganization;
 use App\Http\Requests\V1\Organization\OrganizationDestroyRequest;
-use App\Http\Requests\V1\Organization\OrganizationStoreRequest;
 use App\Http\Requests\V1\Organization\OrganizationUpdateRequest;
 use App\Http\Resources\V1\Organization\OrganizationResource;
 use App\Models\Organization;
 use App\Service\BillableRateService;
 use App\Service\DeletionService;
-use App\Service\IpLookup\IpLookupServiceContract;
-use App\Service\OrganizationService;
-use App\Service\UserService;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\JsonResponse;
 
@@ -91,32 +86,6 @@ class OrganizationController extends Controller
         if ($hasBillableRate && $oldBillableRate !== $request->getBillableRate()) {
             $billableRateService->updateTimeEntriesBillableRateForOrganization($organization);
         }
-
-        return new OrganizationResource($organization, true);
-    }
-
-    /**
-     * Create organization
-     *
-     * @operationId createOrganization
-     */
-    public function store(OrganizationStoreRequest $request, OrganizationService $organizationService): OrganizationResource
-    {
-        $user = $this->user();
-        $ipLookupResponse = app(IpLookupServiceContract::class)->lookup($request->ip());
-
-        $currency = $ipLookupResponse?->currency;
-
-        $organization = $organizationService->createOrganization(
-            $request->getName(),
-            $user,
-            false,
-            $currency
-        );
-
-        app(UserService::class)->switchCurrentOrganization($user, $organization);
-
-        AfterCreateOrganization::dispatch($organization);
 
         return new OrganizationResource($organization, true);
     }

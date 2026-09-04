@@ -8,7 +8,7 @@ type BannerStyle = (typeof ALLOWED_STYLES)[number];
 withDefaults(
     defineProps<{
         // Render as a self-contained rounded alert that sits inside a card
-        // (e.g. the auth card on login/register) instead of a full-width page banner.
+        // (e.g. the login card) instead of a full-width page banner.
         card?: boolean;
     }>(),
     { card: false }

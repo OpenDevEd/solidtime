@@ -19,7 +19,7 @@ class EnsureEmailIsVerifiedMiddlewareTest extends MiddlewareTestAbstract
         })->middleware(EnsureEmailIsVerified::class)->uri;
     }
 
-    public function test_guests_are_redirected_to_verification_notice_route(): void
+    public function test_guests_are_redirected_to_login(): void
     {
         // Arrange
         $route = $this->createTestRoute();
@@ -28,10 +28,10 @@ class EnsureEmailIsVerifiedMiddlewareTest extends MiddlewareTestAbstract
         $response = $this->get($route);
 
         // Assert
-        $response->assertRedirect(route('verification.notice'));
+        $response->assertRedirect(route('login'));
     }
 
-    public function test_users_with_unverified_email_are_redirected_to_verification_notice_route(): void
+    public function test_users_with_unverified_email_are_redirected_to_google_login(): void
     {
         // Arrange
         $user = User::factory()->unverified()->create();
@@ -42,7 +42,7 @@ class EnsureEmailIsVerifiedMiddlewareTest extends MiddlewareTestAbstract
         $response = $this->get($route);
 
         // Assert
-        $response->assertRedirect(route('verification.notice'));
+        $response->assertRedirect(route('login'));
     }
 
     public function test_users_with_unverified_email_get_error_if_the_request_is_json(): void
@@ -102,7 +102,7 @@ class EnsureEmailIsVerifiedMiddlewareTest extends MiddlewareTestAbstract
         $response = $this->get($route);
 
         // Assert
-        $response->assertRedirect(route('verification.notice'));
+        $response->assertRedirect(route('login'));
     }
 
     public function test_users_with_unverified_email_are_redirected_in_local_environment_if_local_email_verification_is_enabled(): void
@@ -118,6 +118,6 @@ class EnsureEmailIsVerifiedMiddlewareTest extends MiddlewareTestAbstract
         $response = $this->get($route);
 
         // Assert
-        $response->assertRedirect(route('verification.notice'));
+        $response->assertRedirect(route('login'));
     }
 }

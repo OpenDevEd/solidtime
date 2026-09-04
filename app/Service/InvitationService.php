@@ -18,22 +18,6 @@ use Illuminate\Support\Facades\Mail;
 
 class InvitationService
 {
-    public function hasAcceptedInvitationForEmail(string $email): bool
-    {
-        return OrganizationInvitation::query()
-            ->whereRaw('lower(email) = ?', [strtolower($email)])
-            ->whereNotNull('accepted_at')
-            ->exists();
-    }
-
-    public function hasPendingInvitationForEmail(string $email): bool
-    {
-        return OrganizationInvitation::query()
-            ->whereRaw('lower(email) = ?', [strtolower($email)])
-            ->whereNull('accepted_at')
-            ->exists();
-    }
-
     /**
      * @throws UserIsAlreadyMemberOfOrganizationApiException|InvitationForTheEmailAlreadyExistsApiException
      */

@@ -8,21 +8,12 @@ use App\Models\Organization;
 use Brick\Money\Currency;
 use Brick\Money\ISOCurrencyProvider;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class OrganizationController extends Controller
 {
-    /**
-     * Show the team creation screen.
-     */
-    public function create(Request $request): Response
-    {
-        return Inertia::render('Teams/Create');
-    }
-
     /**
      * Show the organizatio details screen.
      *

@@ -32,7 +32,7 @@ class ProfileInformationTest extends TestCase
         ]);
 
         // Assert
-        $response->assertStatus(403);
+        $response->assertNotFound();
         $user = $user->fresh();
         $this->assertEquals($user->name, $user->name);
     }

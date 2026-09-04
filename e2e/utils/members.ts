@@ -1,13 +1,41 @@
 import { expect } from '@playwright/test';
 import type { Browser, Page } from '@playwright/test';
-import { PLAYWRIGHT_BASE_URL } from '../../playwright/config';
+import { E2E_AUTH_TOKEN, PLAYWRIGHT_BASE_URL, TEST_USER_PASSWORD } from '../../playwright/config';
 import { getInvitationAcceptUrl } from './mailpit';
 import type { TestContext } from './api';
 
+export async function authenticateTestUser(
+    page: Page,
+    name: string,
+    email: string,
+    timezone = 'UTC'
+): Promise<void> {
+    await page.request.get(`${PLAYWRIGHT_BASE_URL}/login`);
+    const cookies = await page.context().cookies();
+    const xsrfCookie = cookies.find((cookie) => cookie.name === 'XSRF-TOKEN');
+    const xsrfToken = xsrfCookie ? decodeURIComponent(xsrfCookie.value) : '';
+
+    const response = await page.request.post(`${PLAYWRIGHT_BASE_URL}/__e2e/login`, {
+        headers: {
+            'X-E2E-Auth-Token': E2E_AUTH_TOKEN,
+            'X-XSRF-TOKEN': xsrfToken,
+            Accept: 'application/json',
+        },
+        data: {
+            name,
+            email,
+            password: TEST_USER_PASSWORD,
+            timezone,
+        },
+    });
+
+    expect(response.status()).toBe(204);
+}
+
 /**
- * Register a new user in a fresh browser context and return the page + context.
+ * Create and authenticate a test user in a fresh browser context.
  */
-export async function registerUser(
+export async function createAuthenticatedTestUser(
     browser: Browser,
     name: string,
     email: string
@@ -15,14 +43,8 @@ export async function registerUser(
     const context = await browser.newContext();
     const page = await context.newPage();
 
-    await page.goto(PLAYWRIGHT_BASE_URL + '/register');
-    await page.getByLabel('Name').fill(name);
-    await page.getByLabel('Email').fill(email);
-    await page.getByLabel('Password', { exact: true }).fill('amazingpassword123');
-    await page.getByLabel('Confirm Password').fill('amazingpassword123');
-    await page.getByLabel('I agree to the Terms of').click();
-    await page.getByRole('button', { name: 'Register' }).click();
-    await page.waitForURL(PLAYWRIGHT_BASE_URL + '/dashboard');
+    await authenticateTestUser(page, name, email);
+    await page.goto(PLAYWRIGHT_BASE_URL + '/dashboard');
 
     return { page, close: () => context.close() };
 }
@@ -45,8 +67,8 @@ export async function inviteAndAcceptMember(
     memberEmail: string,
     role: 'Employee' | 'Manager' | 'Administrator'
 ): Promise<void> {
-    // 1. Register the second user
-    const secondUser = await registerUser(browser, memberName, memberEmail);
+    // 1. Create the second test user
+    const secondUser = await createAuthenticatedTestUser(browser, memberName, memberEmail);
 
     // 2. Send invitation from the owner
     await ownerPage.goto(PLAYWRIGHT_BASE_URL + '/members');
@@ -85,7 +107,7 @@ export async function setupAdminUser(
     const memberEmail = `admin+${memberId}@admin-perms.test`;
     const memberName = 'Admin ' + memberId;
 
-    const admin = await registerUser(browser, memberName, memberEmail);
+    const admin = await createAuthenticatedTestUser(browser, memberName, memberEmail);
 
     await ownerPage.goto(PLAYWRIGHT_BASE_URL + '/members');
     await ownerPage.getByRole('button', { name: 'Invite Member' }).click();
@@ -172,8 +194,8 @@ export async function setupEmployeeUser(
     const memberEmail = `employee+${memberId}@emp-perms.test`;
     const memberName = 'Emp ' + memberId;
 
-    // Register the employee user first
-    const employee = await registerUser(browser, memberName, memberEmail);
+    // Create the employee test user first
+    const employee = await createAuthenticatedTestUser(browser, memberName, memberEmail);
 
     // Send invitation from the owner
     await ownerPage.goto(PLAYWRIGHT_BASE_URL + '/members');

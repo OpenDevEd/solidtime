@@ -3,8 +3,6 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import DeleteUserForm from '@/Pages/Profile/Partials/DeleteUserForm.vue';
 import LogoutOtherBrowserSessionsForm from '@/Pages/Profile/Partials/LogoutOtherBrowserSessionsForm.vue';
 import SectionBorder from '@/Components/SectionBorder.vue';
-import TwoFactorAuthenticationForm from '@/Pages/Profile/Partials/TwoFactorAuthenticationForm.vue';
-import UpdatePasswordForm from '@/Pages/Profile/Partials/UpdatePasswordForm.vue';
 import UpdateProfileInformationForm from '@/Pages/Profile/Partials/UpdateProfileInformationForm.vue';
 import type { Session } from '@/types/jetstream';
 import ApiTokensForm from '@/Pages/Profile/Partials/ApiTokensForm.vue';
@@ -12,7 +10,6 @@ import ThemeForm from '@/Pages/Profile/Partials/ThemeForm.vue';
 import NotificationSettingsForm from '@/Pages/Profile/Partials/NotificationSettingsForm.vue';
 
 defineProps<{
-    confirmsTwoFactorAuthentication: boolean;
     sessions: Session[];
 }>();
 </script>
@@ -39,20 +36,6 @@ defineProps<{
 
                 <div>
                     <NotificationSettingsForm />
-
-                    <SectionBorder />
-                </div>
-
-                <div>
-                    <UpdatePasswordForm class="mt-10 sm:mt-0" />
-
-                    <SectionBorder />
-                </div>
-
-                <div>
-                    <TwoFactorAuthenticationForm
-                        :requires-confirmation="confirmsTwoFactorAuthentication"
-                        class="mt-10 sm:mt-0" />
 
                     <SectionBorder />
                 </div>

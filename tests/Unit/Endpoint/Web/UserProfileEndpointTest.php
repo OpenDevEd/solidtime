@@ -31,7 +31,6 @@ class UserProfileEndpointTest extends EndpointTestAbstract
             ->component('Profile/Show')
             ->has('timezones')
             ->where('weekdays', Weekday::toSelectArray())
-            ->where('confirmsTwoFactorAuthentication', true)
             ->where('sessions', [])
         );
     }
@@ -93,46 +92,5 @@ class UserProfileEndpointTest extends EndpointTestAbstract
             ->where('sessions.1.is_current_device', false)
             ->where('sessions.1.last_active', '5 minutes ago')
         );
-    }
-
-    public function test_showing_profile_marks_two_factor_authentication_as_empty_when_disabled(): void
-    {
-        // Arrange
-        config(['session.driver' => 'array']);
-        $user = User::factory()->withPersonalOrganization()->create([
-            'two_factor_secret' => null,
-            'two_factor_confirmed_at' => null,
-        ]);
-        $this->actingAs($user);
-
-        // Act
-        $response = $this->get('/user/profile');
-
-        // Assert
-        $response->assertOk();
-        $response->assertSessionHas('two_factor_empty_at');
-    }
-
-    public function test_showing_profile_disables_unconfirmed_two_factor_authentication_after_confirmation_was_abandoned(): void
-    {
-        // Arrange
-        config(['session.driver' => 'array']);
-        $user = User::factory()->withPersonalOrganization()->create([
-            'two_factor_secret' => 'secret',
-            'two_factor_recovery_codes' => '[]',
-            'two_factor_confirmed_at' => null,
-        ]);
-        $this->actingAs($user);
-        $this->withSession(['two_factor_confirming_at' => time() - 1]);
-
-        // Act
-        $response = $this->get('/user/profile');
-
-        // Assert
-        $response->assertOk();
-        $response->assertSessionHas('two_factor_empty_at');
-        $response->assertSessionMissing('two_factor_confirming_at');
-        $this->assertNull($user->fresh()->two_factor_secret);
-        $this->assertNull($user->fresh()->two_factor_confirmed_at);
     }
 }

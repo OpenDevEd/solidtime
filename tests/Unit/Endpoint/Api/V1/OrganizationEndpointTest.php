@@ -5,15 +5,9 @@ declare(strict_types=1);
 namespace Tests\Unit\Endpoint\Api\V1;
 
 use App\Enums\Role;
-use App\Events\AfterCreateOrganization;
 use App\Http\Controllers\Api\V1\OrganizationController;
-use App\Models\Member;
 use App\Models\Organization;
 use App\Service\BillableRateService;
-use App\Service\IpLookup\IpLookupResponseDto;
-use App\Service\IpLookup\IpLookupServiceContract;
-use Illuminate\Support\Facades\Event;
-use Illuminate\Testing\Fluent\AssertableJson;
 use Laravel\Passport\Passport;
 use Mockery\MockInterface;
 use PHPUnit\Framework\Attributes\UsesClass;
@@ -99,118 +93,14 @@ class OrganizationEndpointTest extends ApiEndpointTestAbstract
         $response->assertJsonPath('data.billable_rate', null);
     }
 
-    public function test_store_endpoint_creates_new_organization(): void
+    public function test_store_endpoint_is_disabled(): void
     {
-        // Arrange
-        $data = $this->createUserWithPermission();
-        $organizationFake = Organization::factory()->make();
-        Event::fake([
-            AfterCreateOrganization::class,
-        ]);
-        Passport::actingAs($data->user);
-
-        // Act
-        $response = $this->postJson(route('api.v1.organizations.store'), [
-            'name' => $organizationFake->name,
-        ]);
-
-        // Assert
-        $response->assertStatus(201);
-        $response->assertJson(fn (AssertableJson $json) => $json
-            ->has('data')
-            ->where('data.name', $organizationFake->name)
-            ->where('data.is_personal', false)
-            ->where('data.currency', config('app.localization.default_currency'))
-            ->etc()
-        );
-
-        /** @var Organization $newOrganization */
-        $newOrganization = Organization::query()->where('name', $organizationFake->name)->firstOrFail();
-        $this->assertTrue($newOrganization->owner->is($data->user));
-        $this->assertSame($newOrganization->getKey(), $data->user->fresh()->current_team_id);
-        $this->assertDatabaseHas(Member::class, [
-            'organization_id' => $newOrganization->getKey(),
-            'user_id' => $data->user->getKey(),
-            'role' => Role::Owner->value,
-        ]);
-        Event::assertDispatched(AfterCreateOrganization::class, function (AfterCreateOrganization $event) use ($newOrganization): bool {
-            return $event->organization->is($newOrganization);
-        });
-    }
-
-    public function test_store_endpoint_uses_ip_lookup_currency_for_new_organization(): void
-    {
-        // Arrange
-        $data = $this->createUserWithPermission();
-        $this->mock(IpLookupServiceContract::class, function (MockInterface $mock): void {
-            $mock->shouldReceive('lookup')
-                ->once()
-                ->andReturn(new IpLookupResponseDto(null, null, 'USD'));
-        });
-        Passport::actingAs($data->user);
-
-        // Act
-        $response = $this->postJson(route('api.v1.organizations.store'), [
-            'name' => 'Test Organization',
-        ]);
-
-        // Assert
-        $response->assertStatus(201);
-        $response->assertJsonPath('data.currency', 'USD');
-        $this->assertDatabaseHas(Organization::class, [
-            'name' => 'Test Organization',
-            'currency' => 'USD',
-            'user_id' => $data->user->getKey(),
-            'personal_team' => false,
-        ]);
-    }
-
-    public function test_store_endpoint_fails_if_name_is_missing(): void
-    {
-        // Arrange
         $data = $this->createUserWithPermission();
         Passport::actingAs($data->user);
 
-        // Act
-        $response = $this->postJson(route('api.v1.organizations.store'), []);
-
-        // Assert
-        $response->assertStatus(422);
-        $response->assertJsonValidationErrors(['name']);
-        $this->assertDatabaseCount(Organization::class, 1);
-    }
-
-    public function test_store_endpoint_fails_if_name_is_not_a_string(): void
-    {
-        // Arrange
-        $data = $this->createUserWithPermission();
-        Passport::actingAs($data->user);
-
-        // Act
-        $response = $this->postJson(route('api.v1.organizations.store'), [
-            'name' => ['Test Organization'],
-        ]);
-
-        // Assert
-        $response->assertStatus(422);
-        $response->assertJsonValidationErrors(['name']);
-        $this->assertDatabaseCount(Organization::class, 1);
-    }
-
-    public function test_store_endpoint_fails_if_name_is_too_long(): void
-    {
-        // Arrange
-        $data = $this->createUserWithPermission();
-        Passport::actingAs($data->user);
-
-        // Act
-        $response = $this->postJson(route('api.v1.organizations.store'), [
-            'name' => str_repeat('a', 256),
-        ]);
-
-        // Assert
-        $response->assertStatus(422);
-        $response->assertJsonValidationErrors(['name']);
+        $this->postJson('/api/v1/organizations', [
+            'name' => 'Another Organization',
+        ])->assertMethodNotAllowed();
         $this->assertDatabaseCount(Organization::class, 1);
     }
 

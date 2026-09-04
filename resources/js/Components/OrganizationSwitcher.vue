@@ -3,7 +3,6 @@ import { ChevronDownIcon } from '@heroicons/vue/20/solid';
 import { Link, usePage } from '@inertiajs/vue3';
 import {
     Cog6ToothIcon,
-    PlusCircleIcon,
     CheckCircleIcon,
     ArrowRightIcon,
 } from '@heroicons/vue/24/solid';
@@ -70,15 +69,6 @@ const switchToTeam = (organization: Organization) => {
 
                 <DropdownMenuItem v-if="canManageBilling() && isBillingActivated()" as-child>
                     <Link href="/billing" class="inline-flex items-center w-full"> Billing </Link>
-                </DropdownMenuItem>
-
-                <DropdownMenuItem as-child>
-                    <Link
-                        :href="route('organizations.create')"
-                        class="inline-flex items-center gap-2.5 w-full">
-                        <PlusCircleIcon class="w-5 h-5 text-icon-default" />
-                        <span>Create new organization</span>
-                    </Link>
                 </DropdownMenuItem>
 
                 <template v-if="page.props.auth.user.all_teams.length > 1">

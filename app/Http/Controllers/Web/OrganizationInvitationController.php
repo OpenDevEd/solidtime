@@ -28,16 +28,15 @@ class OrganizationInvitationController extends Controller
             ->where('is_placeholder', '=', false)
             ->first();
 
-        // No account yet — finish on registration.
+        // No account yet — finish after Google authentication.
         if ($invitee === null) {
             if ($invitation->accepted_at === null) {
                 $invitation->accepted_at = now();
                 $invitation->save();
             }
 
-            return redirect(route('register'))
-                ->with('registration_email', $email)
-                ->with('bannerText', __('Please create an account to finish joining the :organization organization.', [
+            return redirect(route('login'))
+                ->with('bannerText', __('Please sign in with Google to finish joining the :organization organization.', [
                     'organization' => $organization->name,
                 ]))
                 ->with('bannerStyle', 'info');

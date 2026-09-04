@@ -6,7 +6,7 @@ import {
     waitForEmailCount,
 } from './utils/mailpit';
 import { getCurrentUserViaApi } from './utils/api';
-import { registerUser } from './utils/members';
+import { createAuthenticatedTestUser } from './utils/members';
 import type { Page } from '@playwright/test';
 import path from 'path';
 
@@ -310,7 +310,11 @@ test('visiting another user’s verification link is forbidden', async ({ page, 
     await saveProfileForm(page);
     const verifyUrl = await getEmailChangeVerificationUrl(page.request, newEmail);
 
-    const other = await registerUser(browser, 'Other User', `other+${Date.now()}@test.com`);
+    const other = await createAuthenticatedTestUser(
+        browser,
+        'Other User',
+        `other+${Date.now()}@test.com`
+    );
     try {
         const response = await other.page.goto(verifyUrl);
         expect(response?.status()).toBe(403);
@@ -463,101 +467,6 @@ test('test that user can revoke an API key', async ({ page }) => {
 });
 
 // =============================================
-// Update Password Form Tests
-// =============================================
-
-test('test that password mismatch shows error', async ({ page }) => {
-    await goToProfilePage(page);
-
-    // Fill in with mismatched passwords
-    await page.getByLabel('Current Password').fill(TEST_USER_PASSWORD);
-    await page.getByLabel('New Password').fill('newSecurePassword456');
-    await page.getByLabel('Confirm Password').fill('differentPassword789');
-
-    // Find the form containing the Confirm Password field and click its Save button
-    const passwordForm = page.getByLabel('Confirm Password').locator('xpath=ancestor::form');
-    await Promise.all([
-        page.waitForResponse(
-            (response) =>
-                response.url().includes('/user/password') && response.request().method() === 'PUT'
-        ),
-        passwordForm.getByRole('button', { name: 'Save' }).click(),
-    ]);
-
-    // Verify error message about password confirmation
-    await expect(page.getByText('confirmation does not match')).toBeVisible();
-});
-
-test('test that short password shows validation error', async ({ page }) => {
-    await goToProfilePage(page);
-
-    // Fill in with a too short password
-    await page.getByLabel('Current Password').fill(TEST_USER_PASSWORD);
-    await page.getByLabel('New Password').fill('short');
-    await page.getByLabel('Confirm Password').fill('short');
-
-    // Find the form containing the Confirm Password field and click its Save button
-    const passwordForm = page.getByLabel('Confirm Password').locator('xpath=ancestor::form');
-    await Promise.all([
-        page.waitForResponse(
-            (response) =>
-                response.url().includes('/user/password') && response.request().method() === 'PUT'
-        ),
-        passwordForm.getByRole('button', { name: 'Save' }).click(),
-    ]);
-
-    // Verify error message about password length
-    await expect(page.getByText('must be at least')).toBeVisible();
-});
-
-test('test that incorrect current password shows validation error', async ({ page }) => {
-    await goToProfilePage(page);
-
-    // Fill in with wrong current password
-    await page.getByLabel('Current Password').fill('wrongCurrentPassword123');
-    await page.getByLabel('New Password').fill('newSecurePassword456');
-    await page.getByLabel('Confirm Password').fill('newSecurePassword456');
-
-    // Find the form containing the Confirm Password field and click its Save button
-    const passwordForm = page.getByLabel('Confirm Password').locator('xpath=ancestor::form');
-    await Promise.all([
-        page.waitForResponse(
-            (response) =>
-                response.url().includes('/user/password') && response.request().method() === 'PUT'
-        ),
-        passwordForm.getByRole('button', { name: 'Save' }).click(),
-    ]);
-
-    // Verify error message about incorrect password
-    await expect(page.getByText('does not match')).toBeVisible();
-});
-
-test('test that password can be updated successfully', async ({ page }) => {
-    await goToProfilePage(page);
-    const newPassword = 'newSecurePassword456';
-
-    // Change password to new password
-    await page.getByLabel('Current Password').fill(TEST_USER_PASSWORD);
-    await page.getByLabel('New Password').fill(newPassword);
-    await page.getByLabel('Confirm Password').fill(newPassword);
-
-    const passwordForm = page.getByLabel('Confirm Password').locator('xpath=ancestor::form');
-    const responsePromise = page.waitForResponse(
-        (response) =>
-            response.url().includes('/user/password') && response.request().method() === 'PUT'
-    );
-    await passwordForm.getByRole('button', { name: 'Save' }).click();
-    const response = await responsePromise;
-
-    // Verify successful response (303 is Inertia redirect on success, means password was updated)
-    expect(response.status()).toBe(303);
-
-    // Verify no error messages are displayed
-    await expect(page.getByText('does not match')).not.toBeVisible();
-    await expect(page.getByText('must be at least')).not.toBeVisible();
-});
-
-// =============================================
 // Theme Selection Tests
 // =============================================
 
@@ -625,99 +534,6 @@ test('test that group similar time entries setting can be toggled', async ({ pag
         localStorage.getItem('group-similar-time-entries')
     );
     expect(storedValue).toBe(String(!initialValue));
-});
-
-// =============================================
-// Two Factor Authentication Tests
-// =============================================
-
-test('test that password confirmation modal can be cancelled without sending API request', async ({
-    page,
-}) => {
-    await goToProfilePage(page);
-
-    // Find the Enable button in the 2FA section
-    const enableButton = page
-        .getByText('You have not enabled two factor authentication.')
-        .locator('..')
-        .getByRole('button', { name: 'Enable' });
-    await enableButton.click();
-
-    // Verify password confirmation modal appears
-    await expect(page.getByRole('dialog')).toBeVisible();
-
-    // Set up listener to verify no POST request is sent to confirm-password
-    let confirmPasswordRequestSent = false;
-    page.on('request', (request) => {
-        if (request.url().includes('/user/confirm-password') && request.method() === 'POST') {
-            confirmPasswordRequestSent = true;
-        }
-    });
-
-    // Click Cancel
-    await page.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click();
-
-    // Verify modal is closed
-    await expect(page.getByRole('dialog')).not.toBeVisible();
-
-    // Verify no confirm-password request was sent
-    expect(confirmPasswordRequestSent).toBe(false);
-});
-
-test('test that password confirmation modal shows error for incorrect password', async ({
-    page,
-}) => {
-    await goToProfilePage(page);
-
-    // Find the Enable button in the 2FA section
-    const enableButton = page
-        .getByText('You have not enabled two factor authentication.')
-        .locator('..')
-        .getByRole('button', { name: 'Enable' });
-    await enableButton.click();
-
-    // Verify password confirmation modal appears
-    await expect(page.getByRole('dialog')).toBeVisible();
-
-    // Enter incorrect password and confirm
-    await page.getByPlaceholder('Password').fill('wrongpassword123');
-    await page.getByRole('dialog').getByRole('button', { name: 'Confirm' }).click();
-
-    // Should show error message (wait longer for API response)
-    await expect(page.getByRole('dialog').getByText('incorrect')).toBeVisible({ timeout: 10000 });
-});
-
-test('test that 2FA can be enabled with correct password', async ({ page }) => {
-    await goToProfilePage(page);
-
-    // Verify 2FA is not enabled
-    await expect(page.getByText('You have not enabled two factor authentication.')).toBeVisible();
-
-    // Find the Enable button in the 2FA section
-    const enableButton = page
-        .getByText('You have not enabled two factor authentication.')
-        .locator('..')
-        .getByRole('button', { name: 'Enable' });
-    await enableButton.click();
-
-    // Verify password confirmation modal appears
-    await expect(page.getByRole('dialog')).toBeVisible();
-
-    // Enter correct password and confirm
-    await page.getByPlaceholder('Password').fill(TEST_USER_PASSWORD);
-    await Promise.all([
-        page.getByRole('dialog').getByRole('button', { name: 'Confirm' }).click(),
-        page.waitForResponse(
-            (response) =>
-                response.url().includes('/user/two-factor-authentication') &&
-                response.request().method() === 'POST'
-        ),
-    ]);
-
-    // Verify QR code is shown
-    await expect(page.getByRole('heading', { name: 'Finish enabling two factor' })).toBeVisible();
-    await expect(page.getByText('Setup Key:')).toBeVisible();
-    await expect(page.getByLabel('Code')).toBeVisible();
 });
 
 // =============================================

@@ -35,15 +35,14 @@ class OrganizationInvitationEndpointTest extends EndpointTestAbstract
 
         // Assert
         $response->assertValid();
-        $response->assertRedirect(route('register'));
-        $response->assertSessionHas('bannerText', 'Please create an account to finish joining the '.$user->organization->name.' organization.');
+        $response->assertRedirect(route('login'));
+        $response->assertSessionHas('bannerText', 'Please sign in with Google to finish joining the '.$user->organization->name.' organization.');
         $response->assertSessionHas('bannerStyle', 'info');
-        $response->assertSessionHas('registration_email', strtolower($invitation->email));
         $invitation->refresh();
         $this->assertNotNull($invitation->accepted_at);
     }
 
-    public function test_can_accept_invitation_without_an_account_with_the_email_address_and_redirects_to_registration(): void
+    public function test_can_accept_invitation_without_an_account_with_the_email_address_and_redirects_to_google_login(): void
     {
         // Arrange
         $user = $this->createUserWithPermission();
@@ -62,10 +61,9 @@ class OrganizationInvitationEndpointTest extends EndpointTestAbstract
 
         // Assert
         $response->assertValid();
-        $response->assertRedirect(route('register'));
-        $response->assertSessionHas('bannerText', 'Please create an account to finish joining the '.$user->organization->name.' organization.');
+        $response->assertRedirect(route('login'));
+        $response->assertSessionHas('bannerText', 'Please sign in with Google to finish joining the '.$user->organization->name.' organization.');
         $response->assertSessionHas('bannerStyle', 'info');
-        $response->assertSessionHas('registration_email', strtolower($invitation->email));
         $invitation->refresh();
         $this->assertNotNull($invitation->accepted_at);
     }

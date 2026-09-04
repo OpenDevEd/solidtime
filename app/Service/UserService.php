@@ -37,16 +37,7 @@ class UserService
         ?TimeFormat $timeFormat = null,
         bool $verifyEmail = false
     ): User {
-        $user = new User;
-        $user->name = $name;
-        $user->email = strtolower($email);
-        $user->password = Hash::make($password);
-        $user->timezone = $timezone;
-        $user->week_start = $weekStart;
-        if ($verifyEmail) {
-            $user->email_verified_at = Carbon::now();
-        }
-        $user->save();
+        $user = $this->createUserRecord($name, $email, $password, $timezone, $weekStart, $verifyEmail);
 
         $organizations = app(InvitationService::class)->processAcceptedInvitations($user);
 
@@ -64,6 +55,51 @@ class UserService
             );
             $this->switchCurrentOrganization($user, $organization);
         }
+
+        return $user;
+    }
+
+    public function createUserInOrganization(
+        string $name,
+        string $email,
+        Organization $organization,
+        Role $role,
+        string $timezone = 'UTC',
+        Weekday $weekStart = Weekday::Monday,
+    ): User {
+        $user = $this->createUserRecord($name, $email, null, $timezone, $weekStart, true);
+        app(MemberService::class)->addMember($user, $organization, $role);
+
+        return $user;
+    }
+
+    public function createPasswordlessUser(
+        string $name,
+        string $email,
+        string $timezone = 'UTC',
+        Weekday $weekStart = Weekday::Monday,
+    ): User {
+        return $this->createUserRecord($name, $email, null, $timezone, $weekStart, true);
+    }
+
+    private function createUserRecord(
+        string $name,
+        string $email,
+        ?string $password,
+        string $timezone,
+        Weekday $weekStart,
+        bool $verifyEmail,
+    ): User {
+        $user = new User;
+        $user->name = $name;
+        $user->email = strtolower($email);
+        $user->password = $password === null ? null : Hash::make($password);
+        $user->timezone = $timezone;
+        $user->week_start = $weekStart;
+        if ($verifyEmail) {
+            $user->email_verified_at = Carbon::now();
+        }
+        $user->save();
 
         return $user;
     }

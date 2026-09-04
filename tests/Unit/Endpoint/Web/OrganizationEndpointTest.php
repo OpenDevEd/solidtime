@@ -16,33 +16,13 @@ use PHPUnit\Framework\Attributes\DataProvider;
 #[CoversClass(OrganizationController::class)]
 class OrganizationEndpointTest extends EndpointTestAbstract
 {
-    public function test_organization_create_succeeds(): void
+    public function test_organization_create_is_disabled(): void
     {
-        // Arrange
         $user = User::factory()->withPersonalOrganization()->create();
         $this->actingAs($user);
 
-        // Act
-        $response = $this->get(route('organizations.create'));
-
-        // Assert
-        $response->assertOk();
-        $response->assertInertia(fn (Assert $page) => $page
-            ->component('Teams/Create')
-        );
-    }
-
-    public function test_legacy_teams_create_redirects_to_new_organization_create(): void
-    {
-        // Arrange
-        $user = User::factory()->withPersonalOrganization()->create();
-        $this->actingAs($user);
-
-        // Act
-        $response = $this->get(route('teams.create'));
-
-        // Assert
-        $response->assertRedirect(route('organizations.create'));
+        $this->get('/organizations/create')->assertNotFound();
+        $this->get('/teams/create')->assertNotFound();
     }
 
     public function test_organization_show_succeeds(): void
@@ -101,22 +81,7 @@ class OrganizationEndpointTest extends EndpointTestAbstract
         );
     }
 
-    public function test_legacy_team_show_redirects_to_organization_show(): void
-    {
-        // Arrange
-        $data = $this->createUserWithPermission([
-            'organizations:view',
-        ]);
-        $this->actingAs($data->user);
-
-        // Act
-        $response = $this->get(route('teams.show', [$data->organization->getKey()]));
-
-        // Assert
-        $response->assertRedirect(route('organizations.show', [$data->organization->getKey()]));
-    }
-
-    public function test_team_show_redirects_to_dashboard_for_invalid_organization_id(): void
+    public function test_organization_show_returns_not_found_for_invalid_organization_id(): void
     {
         // Arrange
         $user = User::factory()->withPersonalOrganization()->create();
@@ -126,7 +91,7 @@ class OrganizationEndpointTest extends EndpointTestAbstract
         $response = $this->get(route('organizations.show', ['not-a-uuid']));
 
         // Assert
-        $response->assertRedirect(route('dashboard'));
+        $response->assertNotFound();
     }
 
     public function test_organization_show_redirects_to_dashboard_for_unknown_organization_id(): void

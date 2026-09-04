@@ -3,12 +3,18 @@ import { Head, Link, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import type { User } from '@/types/models';
 
-defineProps({
-    canLogin: Boolean,
-    canRegister: Boolean,
-    laravelVersion: String,
-    phpVersion: String,
-});
+withDefaults(
+    defineProps<{
+        canLogin?: boolean;
+        laravelVersion?: string;
+        phpVersion?: string;
+    }>(),
+    {
+        canLogin: false,
+        laravelVersion: '',
+        phpVersion: '',
+    }
+);
 
 const page = usePage<{
     auth: {
@@ -37,13 +43,6 @@ const user = computed(() => page?.props?.auth?.user);
                     :href="route('login')"
                     class="font-semibold text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-text-primary focus:outline focus:outline-2 focus:rounded-sm focus:outline-red-500"
                     >Log in</Link
-                >
-
-                <Link
-                    v-if="canRegister"
-                    :href="route('register')"
-                    class="ms-4 font-semibold text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white focus:outline focus:outline-2 focus:rounded-sm focus:outline-red-500"
-                    >Register</Link
                 >
             </template>
         </div>

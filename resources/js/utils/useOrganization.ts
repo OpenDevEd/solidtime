@@ -75,11 +75,6 @@ export const useOrganizationStore = defineStore('organization', () => {
         }
     }
 
-    async function createOrganization(name: string): Promise<Organization | null> {
-        const response = await api.createOrganization({ name });
-        return response?.data ?? null;
-    }
-
     async function deleteOrganization(organizationId: string, body: DeleteOrganizationBody) {
         try {
             await api.deleteOrganization(body, {
@@ -110,7 +105,6 @@ export const useOrganizationStore = defineStore('organization', () => {
         organization,
         fetchOrganization,
         updateOrganization,
-        createOrganization,
         deleteOrganization,
     };
 });

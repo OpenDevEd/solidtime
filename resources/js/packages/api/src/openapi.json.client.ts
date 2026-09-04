@@ -834,39 +834,6 @@ const endpoints = makeApi([
         ),
     },
     {
-        method: 'post',
-        path: '/v1/organizations',
-        alias: 'createOrganization',
-        requestFormat: 'json',
-        parameters: [
-            {
-                name: 'body',
-                type: 'Body',
-                schema: z.object({ name: z.string().max(255) }).passthrough(),
-            },
-        ],
-        response: z.object({ data: OrganizationResource }).passthrough(),
-        errors: [
-            {
-                status: 401,
-                description: `Unauthenticated`,
-                schema: z.object({ message: z.string() }).passthrough(),
-            },
-            {
-                status: 403,
-                description: `Authorization error`,
-                schema: z.object({ message: z.string() }).passthrough(),
-            },
-            {
-                status: 422,
-                description: `Validation error`,
-                schema: z
-                    .object({ message: z.string(), errors: z.record(z.array(z.string())) })
-                    .passthrough(),
-            },
-        ],
-    },
-    {
         method: 'get',
         path: '/v1/organizations/:organization',
         alias: 'getOrganization',

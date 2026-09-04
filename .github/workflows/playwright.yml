@@ -84,6 +84,7 @@ jobs:
         env:
           PLAYWRIGHT_BASE_URL: 'http://127.0.0.1:8000'
           MAILPIT_BASE_URL: 'http://localhost:8025'
+          E2E_AUTH_TOKEN: 'solidtime-playwright'
 
       - name: "Upload blob report"
         uses: actions/upload-artifact@v7

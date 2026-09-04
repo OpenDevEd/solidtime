@@ -344,66 +344,6 @@ test.describe('Command Palette', () => {
             await expect(switchOptions).toHaveCount(0);
         });
 
-        test('switches organization via command palette', async ({ page }) => {
-            const newOrgName = 'TestOrg' + Math.floor(Math.random() * 10000);
-
-            // Create a new organization
-            await page.goto(PLAYWRIGHT_BASE_URL + '/organizations/create');
-            await page.getByLabel('Organization Name').fill(newOrgName);
-            await page.getByRole('button', { name: 'Create' }).click();
-
-            // Wait for navigation to new org's dashboard
-            await expect(page.getByTestId('dashboard_view')).toBeVisible({ timeout: 10000 });
-
-            // Use visible switcher (desktop sidebar has one, mobile header has another)
-            const orgSwitcher = page.locator('[data-testid="organization_switcher"]:visible');
-
-            // Verify we're in the new org by checking the switcher
-            await expect(orgSwitcher).toContainText(newOrgName);
-
-            // Get the original org name from switcher dropdown
-            await orgSwitcher.click();
-            await expect(page.getByText('Switch Organizations')).toBeVisible();
-
-            // Find the other organization button (has ArrowRightIcon, not CheckCircleIcon)
-            // The button contains an SVG and a div with the org name
-            const otherOrgItem = page.locator('form button').filter({ hasText: /.+/ }).first();
-            await expect(otherOrgItem).toBeVisible();
-            const originalOrgName = (await otherOrgItem.innerText()).trim();
-            await page.keyboard.press('Escape'); // Close dropdown
-
-            // Now use command palette to switch back to original org
-            await openCommandPalette(page);
-            await searchInCommandPalette(page, 'Switch to');
-
-            // Should see the switch command for the original org
-            const switchCommand = page.getByRole('option', {
-                name: new RegExp(`Switch to ${originalOrgName}`),
-            });
-            await expect(switchCommand).toBeVisible();
-            await switchCommand.click();
-
-            // Wait for organization switch to complete
-            await expect(orgSwitcher).toContainText(originalOrgName, {
-                timeout: 10000,
-            });
-        });
-
-        test('organization switch commands appear in Organization group', async ({ page }) => {
-            const newOrgName = 'GroupTestOrg' + Math.floor(Math.random() * 10000);
-
-            // Create a new organization to ensure we have multiple
-            await page.goto(PLAYWRIGHT_BASE_URL + '/organizations/create');
-            await page.getByLabel('Organization Name').fill(newOrgName);
-            await page.getByRole('button', { name: 'Create' }).click();
-            await expect(page.getByTestId('dashboard_view')).toBeVisible({ timeout: 10000 });
-
-            // Open command palette and check for Organization group heading
-            await openCommandPalette(page);
-
-            // The Organization group should be visible when there are switch commands
-            await expect(page.getByText('Organization', { exact: true })).toBeVisible();
-        });
     });
 });
 

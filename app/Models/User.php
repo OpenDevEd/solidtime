@@ -47,6 +47,7 @@ use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
  * @property-read Organization|null $currentOrganization
  * @property-read string $profile_photo_url
  * @property-read Collection<int, Token> $tokens
+ * @property-read Collection<int, ExternalIdentity> $externalIdentities
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property string|null $current_team_id
@@ -198,6 +199,14 @@ class User extends Authenticatable implements AuditableContract, FilamentUser, M
     public function timeEntries(): HasMany
     {
         return $this->hasMany(TimeEntry::class);
+    }
+
+    /**
+     * @return HasMany<ExternalIdentity, $this>
+     */
+    public function externalIdentities(): HasMany
+    {
+        return $this->hasMany(ExternalIdentity::class);
     }
 
     /**
