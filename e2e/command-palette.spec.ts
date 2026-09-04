@@ -343,7 +343,6 @@ test.describe('Command Palette', () => {
             const switchOptions = page.getByRole('option', { name: /^Switch to (?!.*Theme)/ });
             await expect(switchOptions).toHaveCount(0);
         });
-
     });
 });
 

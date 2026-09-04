@@ -1,11 +1,7 @@
 <script setup lang="ts">
 import { ChevronDownIcon } from '@heroicons/vue/20/solid';
 import { Link, usePage } from '@inertiajs/vue3';
-import {
-    Cog6ToothIcon,
-    CheckCircleIcon,
-    ArrowRightIcon,
-} from '@heroicons/vue/24/solid';
+import { Cog6ToothIcon, CheckCircleIcon, ArrowRightIcon } from '@heroicons/vue/24/solid';
 import type { Organization, User } from '@/types/models';
 import { isBillingActivated } from '@/utils/billing';
 import { canManageBilling } from '@/utils/permissions';
