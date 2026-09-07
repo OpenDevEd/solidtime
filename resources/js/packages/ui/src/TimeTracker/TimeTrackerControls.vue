@@ -65,10 +65,15 @@ const emit = defineEmits<{
 
 const entryInput = ref<InstanceType<typeof TimeTrackerEntryInput> | null>(null);
 
+function requestStartTimer() {
+    if (!currentTimeEntry.value.project_id) return;
+    emit('startTimer');
+}
+
 function onToggleButtonPress(newState: boolean) {
     if (newState) {
-        emit('startTimer');
-        entryInput.value?.focusAfterStart();
+        if (!currentTimeEntry.value.project_id) return;
+        requestStartTimer();
     } else {
         emit('stopTimer');
     }
@@ -95,7 +100,7 @@ watch(
 <template>
     <div class="flex items-center relative @container" data-testid="dashboard_timer">
         <div
-            class="flex flex-col @2xl:flex-row w-full justify-between rounded-lg border transition shadow-card"
+            class="flex flex-col w-full justify-between rounded-lg border transition shadow-card"
             :class="
                 isOnBreak
                     ? 'bg-amber-500/10 border-amber-500/30'
@@ -104,7 +109,7 @@ watch(
             <div class="flex flex-1 items-center relative">
                 <div
                     v-if="isOnBreak"
-                    class="flex w-full items-center gap-2 py-4 sm:py-2.5 px-3.5 @2xl:px-4 text-base font-medium text-amber-600 dark:text-amber-400">
+                    class="flex w-full items-center gap-2 py-4 sm:py-2.5 px-3.5 text-base font-medium text-amber-600 dark:text-amber-400">
                     <Coffee class="w-5 h-5 shrink-0" />
                     <span>On break</span>
                 </div>
@@ -116,9 +121,9 @@ watch(
                     :projects="projects"
                     :tasks="tasks"
                     :is-active="isActive"
-                    @start-timer="emit('startTimer')"
+                    @start-timer="requestStartTimer"
                     @update-time-entry="emit('updateTimeEntry')"></TimeTrackerEntryInput>
-                <div class="@2xl:hidden pr-3 shrink-0 flex items-center space-x-2">
+                <div class="pr-3 shrink-0 flex items-center space-x-2">
                     <button
                         v-if="breaksEnabled && !isOnBreak && isActive"
                         type="button"
@@ -130,6 +135,13 @@ watch(
                     </button>
                     <TimeTrackerStartStop
                         :active="isActive"
+                        :disabled="!isActive && !currentTimeEntry.project_id"
+                        :title="
+                            !isActive && !currentTimeEntry.project_id
+                                ? 'Select a project to start'
+                                : undefined
+                        "
+                        class="disabled:opacity-40 disabled:cursor-not-allowed"
                         :variant="isOnBreak ? 'break' : 'primary'"
                         @changed="onToggleButtonPress"></TimeTrackerStartStop>
                 </div>
@@ -170,27 +182,11 @@ watch(
                         @start-live-timer="emit('startLiveTimer')"
                         @stop-live-timer="emit('stopLiveTimer')"
                         @update-timer="emit('updateTimeEntry')"
-                        @start-timer="emit('startTimer')"
+                        @start-timer="requestStartTimer"
                         @create-time-entry="emit('createTimeEntry')"
                         @keydown.enter="onRangeEnter"></TimeTrackerRangeSelector>
                 </div>
             </div>
-        </div>
-        <div class="pl-4 @2xl:pl-6 pr-3 hidden @2xl:flex items-center space-x-3">
-            <button
-                v-if="breaksEnabled && !isOnBreak && isActive"
-                type="button"
-                title="Take a break"
-                aria-label="Take a break"
-                class="flex items-center justify-center w-9 h-9 rounded-full bg-quaternary text-text-tertiary hover:text-amber-500 focus:ring-2 focus:ring-border-tertiary transition"
-                @click="emit('startBreak')">
-                <Coffee class="w-5 h-5" />
-            </button>
-            <TimeTrackerStartStop
-                :active="isActive"
-                :variant="isOnBreak ? 'break' : 'primary'"
-                size="large"
-                @changed="onToggleButtonPress"></TimeTrackerStartStop>
         </div>
     </div>
 </template>

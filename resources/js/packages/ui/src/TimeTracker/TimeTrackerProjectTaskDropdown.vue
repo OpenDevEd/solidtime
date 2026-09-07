@@ -59,6 +59,7 @@ const props = withDefaults(
         currency: string;
         emptyPlaceholder?: string;
         allowReset?: boolean;
+        allowNoProject?: boolean;
         noProjectValue?: string | null;
         enableEstimatedTime: boolean;
         organizationBillableRate: number | null;
@@ -71,6 +72,7 @@ const props = withDefaults(
     {
         emptyPlaceholder: 'No Project',
         allowReset: false,
+        allowNoProject: true,
         noProjectValue: NO_PROJECT_ID,
         variant: 'ghost',
         align: 'center',
@@ -204,7 +206,7 @@ function addProjectToFilterObject(
 function updateFilteredResults() {
     const tempFilteredClients: ClientsWithProjectsWithTasks = [];
 
-    if (searchValue.value.length === 0) {
+    if (searchValue.value.length === 0 && props.allowNoProject) {
         tempFilteredClients.push({
             id: 'no_project_no_client',
             name: 'No Client',
@@ -309,12 +311,15 @@ function updateFilteredResults() {
     filteredResults.value = tempFilteredClients;
 }
 
-// Recompute filtered results when search value changes while open
-watch(searchValue, () => {
-    if (open.value) {
-        updateFilteredResults();
+// Queries can finish after the dropdown opens. Refresh when their data arrives too.
+watch(
+    [searchValue, () => props.projects, () => props.tasks, () => props.clients],
+    () => {
+        if (open.value) {
+            updateFilteredResults();
+        }
     }
-});
+);
 
 async function addClientIfNoneExists() {
     setProjectAndClientBasedOnHighlightedItem();
@@ -520,7 +525,7 @@ const selectedProjectName = computed(() => {
     if (project.value === '') {
         return 'No Project';
     }
-    return currentProject.value?.name;
+    return currentProject.value?.name ?? 'Loading project…';
 });
 
 const selectedProjectColor = computed(() => {

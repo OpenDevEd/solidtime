@@ -150,7 +150,7 @@ useSelectEvents(
     showDropdown
 );
 
-// Called by the shell after the start/stop button starts a timer, so typing can continue.
+// Restore description focus after leaving a break.
 function focusAfterStart() {
     if (!blockRefocus.value) {
         currentTimeEntryDescriptionInput.value?.focus();

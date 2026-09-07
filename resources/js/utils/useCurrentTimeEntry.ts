@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { api } from '@/packages/api/src';
 import type { TimeEntry } from '@/packages/api/src';
 import dayjs, { Dayjs } from 'dayjs';
@@ -54,17 +54,51 @@ export function getLastWorkTimeEntry(
 }
 
 export const useCurrentTimeEntryStore = defineStore('currentTimeEntry', () => {
-    const currentTimeEntry = ref<TimeEntry>({ ...emptyTimeEntry });
+    const currentTimeEntry = useLocalStorage<TimeEntry>(
+        `solidtime/current-time-entry/${getCurrentUserId()}`,
+        { ...emptyTimeEntry },
+        { deep: true }
+    );
     const { handleApiRequestNotifications } = useNotificationsStore();
     const queryClient = useQueryClient();
 
-    useLocalStorage('solidtime/current-time-entry', currentTimeEntry, {
-        deep: true,
-    });
+    const rememberedProjects = useLocalStorage<
+        Record<string, Pick<TimeEntry, 'project_id' | 'task_id' | 'billable'>>
+    >('solidtime/timer-projects', {});
+    const selectionKey = computed(() => `${getCurrentUserId()}:${getCurrentOrganizationId()}`);
+
+    watch(
+        () => [
+            currentTimeEntry.value.project_id,
+            currentTimeEntry.value.task_id,
+            currentTimeEntry.value.billable,
+        ],
+        () => {
+            const entry = currentTimeEntry.value;
+            if (entry.type === 'break' || !entry.project_id) return;
+            if (entry.organization_id && entry.organization_id !== getCurrentOrganizationId())
+                return;
+            rememberedProjects.value[selectionKey.value] = {
+                project_id: entry.project_id,
+                task_id: entry.task_id,
+                billable: entry.billable,
+            };
+        },
+        { flush: 'sync', immediate: true }
+    );
 
     function $reset() {
-        currentTimeEntry.value = { ...emptyTimeEntry };
+        currentTimeEntry.value = {
+            ...emptyTimeEntry,
+            ...rememberedProjects.value[selectionKey.value],
+            organization_id: getCurrentOrganizationId() ?? '',
+        };
     }
+
+    watch(selectionKey, () => {
+        if (!currentTimeEntry.value.id) $reset();
+    });
+    if (!currentTimeEntry.value.id) $reset();
 
     const now = ref<null | Dayjs>(null);
     const interval = ref<ReturnType<typeof setInterval> | null>(null);
@@ -88,7 +122,7 @@ export const useCurrentTimeEntryStore = defineStore('currentTimeEntry', () => {
         if (organizationId) {
             try {
                 const timeEntriesResponse = await api.getMyActiveTimeEntry({});
-                if (timeEntriesResponse?.data) {
+                if (timeEntriesResponse) {
                     if (timeEntriesResponse.data) {
                         currentTimeEntry.value = timeEntriesResponse.data;
                         if (
@@ -102,7 +136,7 @@ export const useCurrentTimeEntryStore = defineStore('currentTimeEntry', () => {
                         // Only reset if we had a previously started timer (has an ID)
                         // Don't reset if user is preparing a new time entry (no ID yet)
                         if (currentTimeEntry.value.id !== '') {
-                            currentTimeEntry.value = { ...emptyTimeEntry };
+                            $reset();
                             stopLiveTimer();
                         }
                     }
@@ -112,7 +146,7 @@ export const useCurrentTimeEntryStore = defineStore('currentTimeEntry', () => {
                 // Only reset if we had a previously started timer (has an ID)
                 // Don't reset if user is preparing a new time entry (no ID yet)
                 if (currentTimeEntry.value.id !== '') {
-                    currentTimeEntry.value = { ...emptyTimeEntry };
+                    $reset();
                     stopLiveTimer();
                 }
             }
