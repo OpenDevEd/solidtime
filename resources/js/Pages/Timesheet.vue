@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useBreaksEnabled } from '@/packages/ui/src/utils/useBreaksEnabled';
 import AppLayout from '@/Layouts/AppLayout.vue';
@@ -10,7 +10,8 @@ import TimesheetFooterActions from '@/Components/Timesheet/TimesheetFooterAction
 import RemoveRowDialog from '@/Components/Timesheet/RemoveRowDialog.vue';
 import BreakPlacementModal from '@/Components/Timesheet/BreakPlacementModal.vue';
 import { useTimesheetQuery } from '@/utils/useTimesheetQuery';
-import { useTimesheetGrid } from '@/utils/useTimesheetGrid';
+import { useTimesheetGrid, makeRowKey, type TimesheetRow } from '@/utils/useTimesheetGrid';
+import TimesheetEntryDetails from '@/Components/Timesheet/TimesheetEntryDetails.vue';
 import { useTimeEntriesMutations } from '@/utils/useTimeEntriesMutations';
 import { useProjectsQuery } from '@/utils/useProjectsQuery';
 import { useTasksQuery } from '@/utils/useTasksQuery';
@@ -28,6 +29,7 @@ import {
     formatHumanReadableDuration,
     getLocalizedDateFromTimestamp,
     getLocalizedDayJs,
+    getDayJsInstance,
 } from '@/packages/ui/src/utils/time';
 import { getBreakPlacementHint } from '@/packages/ui/src/utils/breakPlacement';
 import { useTimesheetWeek } from '@/utils/timesheet/useTimesheetWeek';
@@ -71,6 +73,80 @@ const { tags } = useTagsQuery();
 const { now: currentTimerNow } = storeToRefs(useCurrentTimeEntryStore());
 
 const mutations = useTimeEntriesMutations();
+const timerStore = useCurrentTimeEntryStore();
+const timerBusy = ref(false);
+const activeTimerKey = computed(() => {
+    const e = timerStore.currentTimeEntry;
+    return timerStore.isActive && e.organization_id === getCurrentOrganizationId()
+        ? makeRowKey(e.project_id, e.task_id, e.billable, e.tags ?? [], e.type)
+        : null;
+});
+const timerEnabled = computed(
+    () =>
+        isCurrentWeek.value &&
+        (!timerStore.isActive ||
+            timerStore.currentTimeEntry.organization_id === getCurrentOrganizationId())
+);
+async function toggleRowTimer(row: TimesheetRow) {
+    if (timerBusy.value || !timerEnabled.value || (row.type === 'break' && !breaksEnabled.value))
+        return;
+    timerBusy.value = true;
+    try {
+        const stopping =
+            activeTimerKey.value ===
+            makeRowKey(row.projectId, row.taskId, row.billable, row.tags, row.type);
+        if (timerStore.isActive) await timerStore.setActiveState(false);
+        if (!stopping) {
+            await mutations.createTimeEntry({
+                start: getDayJsInstance()().utc().format(),
+                description: '',
+                project_id: row.projectId,
+                task_id: row.taskId,
+                billable: row.billable,
+                tags: row.tags,
+                type: row.type,
+            });
+        }
+        await timerStore.fetchCurrentTimeEntry();
+    } catch {
+        // Shared API notifications report the failure.
+    } finally {
+        timerBusy.value = false;
+    }
+}
+const showDetails = ref(false);
+const detailCell = ref<{ key: string; dayIndex: number } | null>(null);
+const detailEntries = computed(() =>
+    detailCell.value
+        ? (rows.value
+              .find((r) => r.key === detailCell.value?.key)
+              ?.cells.get(detailCell.value.dayIndex)?.entries ?? [])
+        : []
+);
+const detailDate = computed(() =>
+    detailCell.value ? (weekDays.value[detailCell.value.dayIndex] ?? '') : ''
+);
+const detailContext = computed(() => {
+    const row = rows.value.find((row) => row.key === detailCell.value?.key);
+    return [
+        projects.value.find((project) => project.id === row?.projectId)?.name,
+        tasks.value.find((task) => task.id === row?.taskId)?.name,
+    ]
+        .filter(Boolean)
+        .join(' / ');
+});
+function openDetails(row: TimesheetRow, dayIndex: number) {
+    detailCell.value = { key: row.key, dayIndex };
+    showDetails.value = true;
+}
+async function saveNote(id: string, description: string): Promise<boolean> {
+    const response = await mutations.updateTimeEntries({ ids: [id], changes: { description } });
+    if (timerStore.currentTimeEntry.id === id) await timerStore.fetchCurrentTimeEntry();
+    return response !== undefined && response.error.length === 0;
+}
+watch(weekStart, () => {
+    showDetails.value = false;
+});
 
 const { organization } = useOrganizationQuery(getCurrentOrganizationId()!);
 const breaksEnabled = useBreaksEnabled(organization);
@@ -239,6 +315,11 @@ async function createTag(name: string): Promise<Tag | undefined> {
                 :cell-statuses="cellStatus"
                 :cell-pending-seconds="cellPendingSeconds"
                 :misplaced-break-dates="misplacedBreakDates"
+                :active-timer-key="activeTimerKey"
+                :timer-busy="timerBusy"
+                :timer-enabled="timerEnabled"
+                @details="openDetails"
+                @timer="toggleRowTimer"
                 @remove-row="handleRemoveRow"
                 @cell-update="handleCellUpdate"
                 @project-task-change="
@@ -264,6 +345,13 @@ async function createTag(name: string): Promise<Tag | undefined> {
             :entry-count="deleteRowEntryCount"
             :project-name="deleteRowProjectName"
             @confirm="confirmDeleteRow" />
+        <TimesheetEntryDetails
+            v-model:show="showDetails"
+            :entries="detailEntries"
+            :date="detailDate"
+            :context="detailContext"
+            :format-duration="formatDuration"
+            :save-note="saveNote" />
 
         <BreakPlacementModal
             :request="breakPlacementRequest"

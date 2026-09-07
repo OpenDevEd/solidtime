@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { CheckIcon } from '@heroicons/vue/16/solid';
+import { DocumentTextIcon } from '@heroicons/vue/24/outline';
 import DurationSecondsInput from '@/packages/ui/src/Input/DurationSecondsInput.vue';
 import LoadingSpinner from '@/packages/ui/src/LoadingSpinner.vue';
 import {
@@ -25,11 +26,13 @@ const props = defineProps<{
 
 const emit = defineEmits<{
     update: [newSeconds: number];
+    details: [];
 }>();
 
 // Show the optimistic value while saving; `??` (not `||`) so a pending 0 (delete) wins.
 const displaySeconds = computed(() => props.pendingSeconds ?? props.cell?.totalSeconds ?? 0);
 const isSaving = computed(() => props.saveStatus === 'saving');
+const hasNotes = computed(() => props.cell?.entries.some((entry) => entry.description?.trim()));
 
 // A cell is non-editable while its entry is running or when the row itself is
 // read-only (e.g. a leftover break row after breaks were disabled). Both render
@@ -60,7 +63,7 @@ const inputClass = computed(() => {
 <template>
     <div
         data-testid="timesheet_cell"
-        class="flex items-center justify-center border-t border-default-background-separator"
+        class="flex gap-1 py-2 items-center justify-center border-t border-default-background-separator"
         :class="{ 'bg-default-background': isToday }">
         <TooltipProvider v-if="isReadonly" :delay-duration="100">
             <Tooltip>
@@ -94,7 +97,7 @@ const inputClass = computed(() => {
                     @commit="(seconds) => emit('update', seconds ?? 0)" />
                 <span
                     v-if="saveStatus === 'saving' || saveStatus === 'saved'"
-                    class="pointer-events-none absolute left-full top-1/2 ml-1.5 flex -translate-y-1/2 items-center"
+                    class="pointer-events-none absolute -top-1 -right-1 flex rounded-full bg-card-background"
                     :aria-label="saveStatus === 'saving' ? 'Saving' : 'Saved'">
                     <LoadingSpinner
                         v-if="saveStatus === 'saving'"
@@ -103,5 +106,21 @@ const inputClass = computed(() => {
                 </span>
             </span>
         </template>
+        <span class="flex w-6 shrink-0 items-center justify-center">
+            <button
+                v-if="cell?.entries.length"
+                type="button"
+                class="relative flex h-8 w-6 items-center justify-center rounded-md transition-colors hover:bg-card-background hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+                :class="hasNotes ? 'text-text-primary' : 'text-text-quaternary'"
+                :aria-label="`${hasNotes ? 'Edit' : 'Add'} notes for ${date}`"
+                :title="hasNotes ? 'Edit notes' : 'Add notes'"
+                :disabled="isSaving"
+                @click="emit('details')">
+                <DocumentTextIcon class="h-4 w-4" aria-hidden="true" />
+                <span
+                    v-if="hasNotes"
+                    class="absolute right-0.5 top-1 h-1 w-1 rounded-full bg-current" />
+            </button>
+        </span>
     </div>
 </template>

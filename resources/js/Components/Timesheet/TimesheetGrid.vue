@@ -45,6 +45,9 @@ defineProps<{
     cellStatuses: Record<string, CellSaveStatus>;
     cellPendingSeconds: Record<string, number>;
     misplacedBreakDates?: Set<string>;
+    activeTimerKey: string | null;
+    timerBusy: boolean;
+    timerEnabled: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -59,6 +62,8 @@ const emit = defineEmits<{
     (e: 'billable-change', row: TimesheetRowType, billable: boolean): void;
     (e: 'tags-change', row: TimesheetRowType, tags: string[]): void;
     (e: 'add-row', projectId: string | null, taskId: string | null): void;
+    (e: 'details', row: TimesheetRowType, dayIndex: number): void;
+    (e: 'timer', row: TimesheetRowType): void;
 }>();
 </script>
 
@@ -69,7 +74,7 @@ const emit = defineEmits<{
                 class="grid min-w-full w-max border-y border-default-background-separator"
                 style="
                     grid-template-columns:
-                        minmax(420px, 1fr) repeat(7, minmax(116px, 120px)) minmax(100px, auto)
+                        minmax(360px, 420px) repeat(7, minmax(116px, 120px)) minmax(100px, auto)
                         40px;
                 ">
                 <!-- Header row -->
@@ -136,6 +141,11 @@ const emit = defineEmits<{
                     :format-duration="formatDuration"
                     :cell-statuses="cellStatuses"
                     :cell-pending-seconds="cellPendingSeconds"
+                    :active-timer-key="activeTimerKey"
+                    :timer-busy="timerBusy"
+                    :timer-enabled="timerEnabled"
+                    @details="(dayIndex) => emit('details', row, dayIndex)"
+                    @timer="emit('timer', row)"
                     @remove-row="$emit('remove-row', $event)"
                     @cell-update="
                         (dayIndex, seconds) => $emit('cell-update', row, dayIndex, seconds)

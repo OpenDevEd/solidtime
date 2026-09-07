@@ -22,6 +22,8 @@ import {
     type CellSaveStatus,
 } from '@/utils/timesheet/useTimesheetCellMutations';
 import { Button } from '@/packages/ui/src/Buttons';
+import { makeRowKey } from '@/utils/useTimesheetGrid';
+import { PlayIcon, StopIcon } from '@heroicons/vue/16/solid';
 
 const organization = inject<ComputedRef<Organization>>('organization');
 const breaksEnabled = useBreaksEnabled();
@@ -43,6 +45,9 @@ const props = defineProps<{
     formatDuration: (seconds: number) => string;
     cellStatuses: Record<string, CellSaveStatus>;
     cellPendingSeconds: Record<string, number>;
+    activeTimerKey: string | null;
+    timerBusy: boolean;
+    timerEnabled: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -51,6 +56,8 @@ const emit = defineEmits<{
     projectTaskChange: [projectId: string | null, taskId: string | null];
     billableChange: [billable: boolean];
     tagsChange: [tags: string[]];
+    details: [dayIndex: number];
+    timer: [];
 }>();
 
 const selectedProject = computed({
@@ -69,6 +76,17 @@ const rowTotalFormatted = computed(() => props.formatDuration(props.row.totalSec
 // grandfathered). Those cells become read-only — creating/editing break time is
 // rejected server-side — leaving the remove button as the only action.
 const cellsReadonly = computed(() => props.row.type === 'break' && !breaksEnabled.value);
+const timerActive = computed(
+    () =>
+        props.activeTimerKey ===
+        makeRowKey(
+            props.row.projectId,
+            props.row.taskId,
+            props.row.billable,
+            props.row.tags,
+            props.row.type
+        )
+);
 
 function hasRunningEntry(dayIndex: number): boolean {
     const cell = props.row.cells.get(dayIndex);
@@ -104,9 +122,44 @@ function hasRunningEntry(dayIndex: number): boolean {
                     :no-project-value="null"
                     variant="ghost"
                     size="sm"
-                    class="w-full" />
+                    class="w-full">
+                    <template #trigger="{ projectName, projectColor, taskName, clientName }">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            class="h-auto min-h-11 w-full min-w-0 justify-start gap-2 overflow-hidden py-1.5 text-left"
+                            :title="
+                                [projectName, taskName, clientName].filter(Boolean).join(' / ')
+                            ">
+                            <span
+                                class="h-2.5 w-2.5 shrink-0 rounded-full"
+                                :style="{ backgroundColor: projectColor }" />
+                            <span class="min-w-0 flex-1">
+                                <span
+                                    class="block truncate text-sm font-medium text-text-primary"
+                                    >{{ projectName }}</span
+                                >
+                                <span
+                                    v-if="taskName || clientName"
+                                    class="mt-0.5 block truncate text-xs font-normal text-text-secondary">
+                                    {{ [taskName, clientName].filter(Boolean).join(' · ') }}
+                                </span>
+                            </span>
+                        </Button>
+                    </template>
+                </TimeTrackerProjectTaskDropdown>
             </div>
             <div class="flex items-center gap-1 flex-shrink-0 ml-auto">
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    :disabled="timerBusy || !timerEnabled || cellsReadonly"
+                    :aria-label="timerActive ? 'Stop row timer' : 'Start row timer for today'"
+                    :title="timerActive ? 'Stop timer' : 'Start a new entry now for today'"
+                    @click="emit('timer')">
+                    <StopIcon v-if="timerActive" class="w-4 h-4 text-red-500" />
+                    <PlayIcon v-else class="w-4 h-4" />
+                </Button>
                 <TimeEntryRowTagDropdown
                     v-if="row.type !== 'break'"
                     :create-tag="createTag"
@@ -134,6 +187,7 @@ function hasRunningEntry(dayIndex: number): boolean {
             :readonly="cellsReadonly"
             :save-status="cellStatuses[makeCellStatusKey(row.key, dayIndex)]"
             :pending-seconds="cellPendingSeconds[makeCellStatusKey(row.key, dayIndex)]"
+            @details="emit('details', dayIndex)"
             @update="(seconds) => emit('cellUpdate', dayIndex, seconds)" />
 
         <!-- Row total -->

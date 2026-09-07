@@ -570,7 +570,14 @@ const showCreateProject = ref(false);
 <template>
     <Dropdown v-model="open" :close-on-content-click="false" :align="props.align">
         <template #trigger>
-            <slot name="trigger">
+            <slot
+                name="trigger"
+                v-bind="{
+                    projectName: selectedProjectName,
+                    projectColor: selectedProjectColor,
+                    taskName: currentTask?.name,
+                    clientName: selectedClientName,
+                }">
                 <div class="flex items-center gap-1">
                     <Button
                         :variant="props.variant"
@@ -626,6 +633,13 @@ const showCreateProject = ref(false);
                     ref="dropdownViewport"
                     class="w-[400px] max-w-[calc(100vw-2rem)] max-h-[350px] overflow-y-scroll relative"
                     @mousemove="mouseEnterHighlightActivated = true">
+                    <p
+                        v-if="flatRows.length === 0"
+                        role="status"
+                        class="px-4 py-6 text-center text-sm text-text-secondary">
+                        No projects or tasks match your search. Try another name or clear the
+                        search.
+                    </p>
                     <div :style="{ height: `${totalSize}px`, width: '100%', position: 'relative' }">
                         <div
                             v-for="{ virtualRow, row } in visibleRows"
