@@ -180,7 +180,7 @@ class ProjectMemberEndpointTest extends ApiEndpointTestAbstract
         $response->assertInvalid(['member_id']);
     }
 
-    public function test_store_endpoint_fails_if_user_is_a_placeholder(): void
+    public function test_store_endpoint_assigns_placeholder_without_activating_the_account(): void
     {
         // Arrange
         $data = $this->createUserWithPermission([
@@ -188,7 +188,7 @@ class ProjectMemberEndpointTest extends ApiEndpointTestAbstract
         ]);
         $project = Project::factory()->forOrganization($data->organization)->create();
         $projectMemberFake = ProjectMember::factory()->make();
-        $user = User::factory()->placeholder()->create();
+        $user = User::factory()->placeholder()->create(['email_verified_at' => null]);
         $member = Member::factory()->forOrganization($data->organization)->forUser($user)->create();
         Passport::actingAs($data->user);
 
@@ -199,13 +199,10 @@ class ProjectMemberEndpointTest extends ApiEndpointTestAbstract
         ]);
 
         // Assert
-        $response->assertStatus(400);
-        $response->assertExactJson([
-            'error' => true,
-            'key' => 'inactive_user_can_not_be_used',
-            'message' => 'Inactive user can not be used',
-        ]);
-        $this->assertDatabaseMissing(ProjectMember::class, [
+        $response->assertSuccessful();
+        $this->assertTrue($user->fresh()->is_placeholder);
+        $this->assertNull($user->fresh()->email_verified_at);
+        $this->assertDatabaseHas(ProjectMember::class, [
             'billable_rate' => $projectMemberFake->billable_rate,
             'member_id' => $member->getKey(),
             'project_id' => $project->getKey(),

@@ -49,6 +49,7 @@ useFocus(projectNameInput, { initialValue: true });
             <div class="grid grid-cols-3 items-center space-x-4">
                 <div class="col-span-3 sm:col-span-2">
                     <MemberCombobox
+                        include-placeholders
                         v-model="projectMember.member_id"
                         :hidden-members="props.existingMembers"></MemberCombobox>
                 </div>

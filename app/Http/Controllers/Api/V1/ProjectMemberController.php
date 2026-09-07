@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1;
 
-use App\Exceptions\Api\InactiveUserCanNotBeUsedApiException;
 use App\Exceptions\Api\UserIsAlreadyMemberOfProjectApiException;
 use App\Http\Requests\V1\ProjectMember\ProjectMemberIndexRequest;
 use App\Http\Requests\V1\ProjectMember\ProjectMemberStoreRequest;
@@ -58,7 +57,7 @@ class ProjectMemberController extends Controller
     /**
      * Add project member to project
      *
-     * @throws AuthorizationException|InactiveUserCanNotBeUsedApiException|UserIsAlreadyMemberOfProjectApiException
+     * @throws AuthorizationException|UserIsAlreadyMemberOfProjectApiException
      *
      * @operationId createProjectMember
      */
@@ -67,9 +66,6 @@ class ProjectMemberController extends Controller
         $this->checkPermission($organization, 'project-members:create', $project);
 
         $member = Member::findOrFail((string) $request->input('member_id'));
-        if ($member->user->is_placeholder) {
-            throw new InactiveUserCanNotBeUsedApiException;
-        }
         if (ProjectMember::whereBelongsTo($project, 'project')->whereBelongsTo($member, 'member')->exists()) {
             throw new UserIsAlreadyMemberOfProjectApiException;
         }

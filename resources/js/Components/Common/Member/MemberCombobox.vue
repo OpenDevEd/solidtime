@@ -26,10 +26,12 @@ const props = withDefaults(
     defineProps<{
         hiddenMembers?: ProjectMember[];
         disabled?: boolean;
+        includePlaceholders?: boolean;
     }>(),
     {
         hiddenMembers: () => [] as ProjectMember[],
         disabled: false,
+        includePlaceholders: false,
     }
 );
 
@@ -52,7 +54,7 @@ const filteredMembers = computed<Member[]>(() => {
         return (
             member.name.toLowerCase().includes(searchValue.value.toLowerCase().trim() || '') &&
             !props.hiddenMembers.some((hiddenMember) => hiddenMember.member_id === member.id) &&
-            member.is_placeholder === false
+            (props.includePlaceholders || member.is_placeholder === false)
         );
     });
 });
