@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\V1\ChartController;
 use App\Http\Controllers\Api\V1\ClientController;
 use App\Http\Controllers\Api\V1\CurrencyController;
 use App\Http\Controllers\Api\V1\ExportController;
+use App\Http\Controllers\Api\V1\HarvestImportController;
 use App\Http\Controllers\Api\V1\ImportController;
 use App\Http\Controllers\Api\V1\InvitationController;
 use App\Http\Controllers\Api\V1\MemberController;
@@ -173,6 +174,12 @@ Route::prefix('v1')->name('v1.')->group(static function (): void {
         // Import routes
         Route::name('import.')->prefix('/organizations/{organization}')->group(static function (): void {
             Route::get('/importers', [ImportController::class, 'index'])->name('index');
+            Route::get('/harvest-imports', [HarvestImportController::class, 'index'])->name('harvest.index');
+            Route::post('/harvest-imports', [HarvestImportController::class, 'store'])->name('harvest.store')->middleware('check-organization-blocked');
+            Route::get('/harvest-imports/{run}', [HarvestImportController::class, 'show'])->name('harvest.show');
+            Route::post('/harvest-imports/{run}/plan', [HarvestImportController::class, 'plan'])->name('harvest.plan')->middleware('check-organization-blocked');
+            Route::post('/harvest-imports/{run}/confirm', [HarvestImportController::class, 'confirm'])->name('harvest.confirm')->middleware('check-organization-blocked');
+            Route::get('/harvest-imports/{run}/changes', [HarvestImportController::class, 'changes'])->name('harvest.changes');
             Route::post('/import', [ImportController::class, 'import'])->name('import')->middleware('check-organization-blocked');
         });
 

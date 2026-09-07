@@ -14,6 +14,7 @@ import SecondaryButton from '@/packages/ui/src/Buttons/SecondaryButton.vue';
 import { initializeStores } from '@/utils/init';
 import { CardTitle } from '@/packages/ui/src';
 import Card from '@/Components/Common/Card.vue';
+import HarvestImport from './HarvestImport.vue';
 
 const importTypeOptions = ref<ImportType[]>([]);
 
@@ -121,6 +122,7 @@ const showResultModal = ref(false);
 </script>
 
 <template>
+    <HarvestImport />
     <DialogModal closeable :show="showResultModal" @close="showResultModal = false">
         <template #title>Import Result</template>
         <template #content>

@@ -32,6 +32,14 @@ return [
 
     'connections' => [
 
+        'harvest' => [
+            'driver' => 'database',
+            'table' => 'jobs',
+            'queue' => 'harvest',
+            'retry_after' => 1500,
+            'after_commit' => false,
+        ],
+
         'sync' => [
             'driver' => 'sync',
         ],
