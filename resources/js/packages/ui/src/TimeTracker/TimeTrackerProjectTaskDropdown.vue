@@ -312,14 +312,11 @@ function updateFilteredResults() {
 }
 
 // Queries can finish after the dropdown opens. Refresh when their data arrives too.
-watch(
-    [searchValue, () => props.projects, () => props.tasks, () => props.clients],
-    () => {
-        if (open.value) {
-            updateFilteredResults();
-        }
+watch([searchValue, () => props.projects, () => props.tasks, () => props.clients], () => {
+    if (open.value) {
+        updateFilteredResults();
     }
-);
+});
 
 async function addClientIfNoneExists() {
     setProjectAndClientBasedOnHighlightedItem();
