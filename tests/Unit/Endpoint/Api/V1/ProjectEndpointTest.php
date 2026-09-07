@@ -23,6 +23,18 @@ use PHPUnit\Framework\Attributes\UsesClass;
 #[UsesClass(ProjectController::class)]
 class ProjectEndpointTest extends ApiEndpointTestAbstract
 {
+    public function test_index_supports_bounded_page_sizes(): void
+    {
+        $data = $this->createUserWithPermission(['projects:view', 'projects:view:all']);
+        Passport::actingAs($data->user);
+        Project::factory()->forOrganization($data->organization)->createMany(16);
+
+        $url = route('api.v1.projects.index', [$data->organization->getKey()]);
+        $this->getJson($url.'?per_page=250')->assertOk()->assertJsonCount(16, 'data')->assertJsonPath('meta.last_page', 1);
+        $this->getJson($url.'?per_page=251')->assertUnprocessable()->assertJsonValidationErrors('per_page');
+        $this->getJson($url.'?per_page=0')->assertUnprocessable()->assertJsonValidationErrors('per_page');
+    }
+
     public function test_index_endpoint_fails_if_user_has_no_permission_to_view_projects(): void
     {
         // Arrange

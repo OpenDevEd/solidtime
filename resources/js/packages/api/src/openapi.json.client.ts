@@ -2771,6 +2771,11 @@ const endpoints = makeApi([
         requestFormat: 'json',
         parameters: [
             {
+                name: 'per_page',
+                type: 'Query',
+                schema: z.number().int().gte(1).lte(250).optional(),
+            },
+            {
                 name: 'organization',
                 type: 'Path',
                 schema: z.string(),
@@ -3602,6 +3607,11 @@ const endpoints = makeApi([
         alias: 'getTasks',
         requestFormat: 'json',
         parameters: [
+            {
+                name: 'per_page',
+                type: 'Query',
+                schema: z.number().int().gte(1).lte(250).optional(),
+            },
             {
                 name: 'organization',
                 type: 'Path',

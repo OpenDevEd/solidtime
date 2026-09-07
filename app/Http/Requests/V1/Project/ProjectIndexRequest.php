@@ -17,6 +17,7 @@ class ProjectIndexRequest extends BaseFormRequest
     public function rules(): array
     {
         return [
+            'per_page' => ['integer', 'min:1', 'max:250'],
             'page' => [
                 'integer',
                 'min:1',

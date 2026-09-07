@@ -13,9 +13,14 @@ export async function fetchAllPages<T>(
     const allItems: T[] = [...firstResponse.data];
     const { last_page } = firstResponse.meta;
 
-    for (let page = 2; page <= last_page; page++) {
-        const response = await fetchPage(page);
-        allItems.push(...response.data);
+    const concurrency = 3;
+    for (let page = 2; page <= last_page; page += concurrency) {
+        const responses = await Promise.all(
+            Array.from({ length: Math.min(concurrency, last_page - page + 1) }, (_, offset) =>
+                fetchPage(page + offset)
+            )
+        );
+        for (const response of responses) allItems.push(...response.data);
     }
 
     return allItems;

@@ -54,7 +54,7 @@ const task = computed(() => {
                     {{ task.name }}
                 </div>
             </div>
-            <div v-else>No Project</div>
+            <div v-else>{{ timeEntry.project_id ? 'Project unavailable' : 'No Project' }}</div>
         </ProjectBadge>
     </button>
 </template>

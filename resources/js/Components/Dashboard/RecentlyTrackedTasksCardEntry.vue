@@ -14,7 +14,7 @@ const props = defineProps<{
     timeEntry: TimeEntry;
 }>();
 
-const { projects } = useProjectsQuery();
+const { projects, isPending: projectsLoading } = useProjectsQuery();
 
 const project = computed(() => {
     return projects.value.find((project) => project.id === props.timeEntry.project_id);
@@ -54,7 +54,14 @@ async function startTaskTimer() {
             <ProjectBadge size="base" class="min-w-0 max-w-full" :color="project?.color">
                 <div class="flex items-center lg:space-x-0.5 min-w-0">
                     <span class="whitespace-nowrap">
-                        {{ project?.name ?? 'No Project' }}
+                        {{
+                            project?.name ??
+                            (timeEntry.project_id
+                                ? projectsLoading
+                                    ? 'Loading project…'
+                                    : 'Project unavailable'
+                                : 'No Project')
+                        }}
                     </span>
                     <ChevronRightIcon
                         v-if="task"

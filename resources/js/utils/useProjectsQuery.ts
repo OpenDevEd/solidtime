@@ -9,7 +9,7 @@ export async function fetchAllProjects(organizationId: string): Promise<Project[
     return fetchAllPages((page) =>
         api.getProjects({
             params: { organization: organizationId },
-            queries: { archived: 'all', page },
+            queries: { archived: 'all', page, per_page: 250 },
         })
     );
 }

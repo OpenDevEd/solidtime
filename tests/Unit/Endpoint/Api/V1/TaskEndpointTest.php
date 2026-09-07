@@ -18,6 +18,18 @@ use PHPUnit\Framework\Attributes\UsesClass;
 #[UsesClass(TaskController::class)]
 class TaskEndpointTest extends ApiEndpointTestAbstract
 {
+    public function test_index_supports_bounded_page_sizes(): void
+    {
+        $data = $this->createUserWithPermission(['tasks:view', 'tasks:view:all']);
+        Passport::actingAs($data->user);
+        Task::factory()->forOrganization($data->organization)->createMany(16);
+
+        $url = route('api.v1.tasks.index', [$data->organization->getKey()]);
+        $this->getJson($url.'?per_page=250')->assertOk()->assertJsonCount(16, 'data')->assertJsonPath('meta.last_page', 1);
+        $this->getJson($url.'?per_page=251')->assertUnprocessable()->assertJsonValidationErrors('per_page');
+        $this->getJson($url.'?per_page=0')->assertUnprocessable()->assertJsonValidationErrors('per_page');
+    }
+
     public function test_non_valid_uuid_for_organization_id_fails(): void
     {
         // Arrange

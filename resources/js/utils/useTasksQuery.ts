@@ -9,7 +9,7 @@ export async function fetchAllTasks(organizationId: string): Promise<Task[]> {
     return fetchAllPages((page) =>
         api.getTasks({
             params: { organization: organizationId },
-            queries: { done: 'all', page },
+            queries: { done: 'all', page, per_page: 250 },
         })
     );
 }
