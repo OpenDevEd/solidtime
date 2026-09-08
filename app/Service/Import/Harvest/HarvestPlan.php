@@ -57,6 +57,7 @@ class HarvestPlan
         $manifest = $snapshot->manifest($run);
         $read = fn (string $entity): array => iterator_to_array($snapshot->rows($run, $entity, $manifest), false);
         $sourceUsers = $read('users');
+        $sourceNameCounts = array_count_values(array_map(fn (array $row): string => $this->normalName($row['first_name'].' '.$row['last_name']), $sourceUsers));
         $emails = array_map(fn (array $row): string => strtolower(trim($row['email'])), $sourceUsers);
         foreach (self::TABLES as $table) {
             $query = DB::table($table);
@@ -125,7 +126,9 @@ class HarvestPlan
             }
             $suggestions = $this->find('users', fn (array $u): bool => $u['is_placeholder'] && $this->normalName($u['name']) === $this->normalName($name)
                 && count($this->find('members', fn (array $m): bool => $m['user_id'] === $u['id'])) > 0);
-            $target = $this->target('users', $id, $exact ?: $suggestions, $name.' <'.$email.'> ['.$id.']', $exact === [] && $suggestions !== []);
+            $needsNameReview = $exact === [] && $suggestions !== []
+                && (count($suggestions) !== 1 || $sourceNameCounts[$this->normalName($name)] !== 1);
+            $target = $this->target('users', $id, $exact ?: $suggestions, $name.' <'.$email.'> ['.$id.']', $needsNameReview);
             foreach ($this->conflicts as &$conflict) {
                 if ($conflict['key'] !== 'users:'.$id) {
                     continue;

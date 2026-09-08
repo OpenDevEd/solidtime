@@ -9,6 +9,7 @@ use App\Jobs\ProcessHarvestImport;
 use App\Models\Client;
 use App\Models\ExternalAuthOrganization;
 use App\Models\HarvestImportRun;
+use App\Models\Member;
 use App\Models\Project;
 use App\Models\TimeEntry;
 use App\Models\User;
@@ -26,6 +27,25 @@ use Tests\TestCaseWithDatabase;
 class HarvestImportTest extends TestCaseWithDatabase
 {
     private object $admin;
+
+    public function test_unique_placeholder_name_is_linked_without_manual_review(): void
+    {
+        $placeholder = User::factory()->create(['name' => 'New Person', 'is_placeholder' => true]);
+        Member::factory()->forOrganization($this->admin->organization)->create(['user_id' => $placeholder->id]);
+        $run = $this->snapshot();
+        $this->apply($run);
+        $this->assertSame($placeholder->id, DB::table('harvest_import_mappings')->where('entity', 'users')->where('source_id', '2')->value('target_id'));
+    }
+
+    public function test_duplicate_harvest_names_still_require_placeholder_review(): void
+    {
+        $placeholder = User::factory()->create(['name' => 'New Person', 'is_placeholder' => true]);
+        Member::factory()->forOrganization($this->admin->organization)->create(['user_id' => $placeholder->id]);
+        $run = $this->snapshot(withAlias: true);
+        app(HarvestImport::class)->prepare($run);
+        $this->assertFalse($run->fresh()->summary['can_import']);
+        $this->assertContains('users:2', array_column($run->fresh()->summary['plan']['conflicts'], 'key'));
+    }
 
     protected function setUp(): void
     {

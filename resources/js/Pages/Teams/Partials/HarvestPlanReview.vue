@@ -1,20 +1,18 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref, watch } from 'vue';
+import {
+    applyHarvestFieldChoice,
+    groupHarvestConflicts,
+    type HarvestConflict,
+} from '@/utils/harvestReview';
 import { api } from '@/packages/api/src';
 import { useNotificationsStore } from '@/utils/notification';
 import PrimaryButton from '@/packages/ui/src/Buttons/PrimaryButton.vue';
 
-interface Conflict {
-    key: string;
-    label: string;
-    message: string;
-    candidates: { id: string; name: string; email?: string | null; evidence?: string[] }[];
-    choices: string[];
-}
 interface Plan {
     hash: string;
     counts: Record<string, Record<string, number>>;
-    conflicts: Conflict[];
+    conflicts: HarvestConflict[];
     unmatched_existing: number;
     skipped_running: number;
 }
@@ -39,6 +37,31 @@ interface Change {
 const props = defineProps<{ run: Run; endpoint: string }>();
 const emit = defineEmits<{ updated: [] }>();
 const decisions = ref<Record<string, string>>({ ...(props.run.decisions ?? {}) });
+const showResolved = ref(false);
+const conflicts = computed(() => groupHarvestConflicts(props.run.summary?.plan?.conflicts ?? []));
+const unresolved = computed(() =>
+    conflicts.value.filter((conflict) => !decisions.value[conflict.key])
+);
+const visibleConflicts = computed(() => (showResolved.value ? conflicts.value : unresolved.value));
+const fieldConflicts = computed(() =>
+    unresolved.value.filter(
+        (conflict) =>
+            conflict.candidates.length === 0 &&
+            conflict.choices.includes('local') &&
+            conflict.choices.includes('source')
+    )
+);
+watch(
+    () => props.run.id,
+    () => {
+        decisions.value = { ...(props.run.decisions ?? {}) };
+        acknowledged.value = false;
+        showResolved.value = false;
+    }
+);
+function applyFieldChoice(choice: 'local' | 'source') {
+    decisions.value = applyHarvestFieldChoice(conflicts.value, decisions.value, choice);
+}
 const acknowledged = ref(false);
 const submitting = ref(false);
 const changes = ref<Change[]>([]);
@@ -79,23 +102,6 @@ async function submit(action: 'plan' | 'confirm') {
         submitting.value = false;
     }
 }
-function selectUniqueSuggestions() {
-    const conflicts = props.run.summary?.plan?.conflicts ?? [];
-    const counts = new Map<string, number>();
-    for (const conflict of conflicts)
-        for (const candidate of conflict.candidates)
-            counts.set(candidate.id, (counts.get(candidate.id) ?? 0) + 1);
-    for (const conflict of conflicts) {
-        const candidate = conflict.candidates[0];
-        if (
-            conflict.key.startsWith('users:') &&
-            conflict.candidates.length === 1 &&
-            candidate &&
-            counts.get(candidate.id) === 1
-        )
-            decisions.value[conflict.key] = candidate.id;
-    }
-}
 async function loadChanges(nextPage = 1) {
     submitting.value = true;
     try {
@@ -126,8 +132,9 @@ async function loadChanges(nextPage = 1) {
                 {{ run.status === 'completed' ? 'Import results' : 'Planned changes' }}
             </h4>
             <p v-if="run.summary.plan.conflicts.length" class="text-sm">
-                Counts are provisional until the {{ run.summary.plan.conflicts.length }} conflicts
-                are resolved.
+                {{ unresolved.length }} decisions remaining ·
+                {{ conflicts.length - unresolved.length }} selected. Rebuild the plan to validate
+                your selections before importing.
             </p>
             <div class="overflow-x-auto">
                 <table class="w-full text-sm text-left">
@@ -158,11 +165,37 @@ async function loadChanges(nextPage = 1) {
                 </table>
             </div>
             <template v-if="run.status === 'planned' && run.summary.plan.conflicts.length">
-                <button type="button" class="underline text-sm" @click="selectUniqueSuggestions">
-                    Select unique suggested placeholder matches
-                </button>
                 <div
-                    v-for="(conflict, index) in run.summary.plan.conflicts"
+                    v-if="fieldConflicts.length"
+                    class="rounded-lg border border-card-border p-4 space-y-3">
+                    <p class="text-sm">
+                        {{ fieldConflicts.length }} records have changes in both systems. Choose a
+                        policy for the remaining records, or review them individually below.
+                        Existing selections are preserved.
+                    </p>
+                    <div class="flex flex-wrap gap-4 text-sm">
+                        <button
+                            type="button"
+                            class="underline"
+                            :disabled="submitting"
+                            @click="applyFieldChoice('local')">
+                            Keep Solidtime for all {{ fieldConflicts.length }}
+                        </button>
+                        <button
+                            type="button"
+                            class="underline"
+                            :disabled="submitting"
+                            @click="applyFieldChoice('source')">
+                            Use Harvest for all {{ fieldConflicts.length }}
+                        </button>
+                    </div>
+                </div>
+                <label class="flex items-center gap-2 text-sm"
+                    ><input v-model="showResolved" type="checkbox" />Show selected decisions for
+                    review or editing</label
+                >
+                <div
+                    v-for="(conflict, index) in visibleConflicts"
                     :key="`${conflict.key}:${index}`"
                     class="border-t border-card-background-separator pt-3 space-y-1">
                     <label :for="`harvest-conflict-${index}`" class="font-medium text-sm">{{
