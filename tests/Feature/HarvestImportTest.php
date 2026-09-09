@@ -235,6 +235,31 @@ class HarvestImportTest extends TestCaseWithDatabase
         $this->assertSame(4, TimeEntry::where('user_id', $before)->count());
     }
 
+    public function test_reimport_preserves_changed_login_email_when_saved_identity_mappings_agree(): void
+    {
+        $this->apply($this->snapshot());
+        $user = User::where('email', 'new@example.com')->firstOrFail();
+        $user->update(['email' => 'login@example.com', 'is_placeholder' => false]);
+        $this->apply($this->snapshot());
+        $this->assertSame('login@example.com', $user->fresh()->email);
+        $this->assertSame(4, TimeEntry::where('user_id', $user->id)->count());
+        $this->assertFalse(User::where('email', 'new@example.com')->exists());
+    }
+
+    public function test_reimport_blocks_changed_login_email_when_saved_identity_mappings_disagree(): void
+    {
+        $this->apply($this->snapshot());
+        $user = User::where('email', 'new@example.com')->firstOrFail();
+        $user->update(['email' => 'login@example.com', 'is_placeholder' => false]);
+        $other = User::factory()->create();
+        DB::table('external_auth_user_mappings')->where('email', 'new@example.com')->update(['user_id' => $other->id]);
+        $run = $this->snapshot();
+        app(HarvestImport::class)->prepare($run);
+        $this->assertFalse($run->fresh()->summary['can_import']);
+        $this->assertContains('users:2', array_column($run->fresh()->summary['plan']['conflicts'], 'key'));
+        $this->assertSame('login@example.com', $user->fresh()->email);
+    }
+
     public function test_account_already_existing_elsewhere_gets_membership_not_a_duplicate_user(): void
     {
         $other = $this->createUserWithRole(Role::Employee);

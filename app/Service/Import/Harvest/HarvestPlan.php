@@ -147,7 +147,9 @@ class HarvestPlan
             } else {
                 $attrs = ['name' => $name, 'email' => $email];
             }
-            if ($existing !== null && $existing['email'] !== $email && $exact !== [] && ! $existing['is_placeholder']) {
+            $savedIdentityAgrees = ($this->maps['users:'.$id]['target_id'] ?? null) === $target
+                && count($auth) === 1 && $auth[0]['user_id'] === $target;
+            if ($existing !== null && strtolower($existing['email']) !== $email && ! $existing['is_placeholder'] && ! $savedIdentityAgrees) {
                 $this->conflict('users:'.$id, $name, 'The mapped account email differs from Harvest. Resolve the identity before importing.', []);
             }
             $this->operation('users', $id, $target, $attrs, $name, ['is_placeholder' => true, 'timezone' => 'UTC', 'week_start' => 'monday', 'password' => null, 'email_verified_at' => null]);
